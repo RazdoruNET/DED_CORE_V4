@@ -4,13 +4,9 @@ Preferences preferences;
 
 #define FIRMWARE_VERSION "0.0.1"
 
-#include <nvs_flash.h>
-
-#include "ArduinoJson.h"
-#include "ArduinoOTA.h"
-#include "WebSocketsServer.h"
-#include "FS.h"
-#include "SPIFFS.h"
+#include "core/init/SYSTEM_INIT.h"
+#include "core/preferences/PREFERENCES_MANAGER.h"
+#include "core/recovery/RECOVERY_MODE.h"
 
 #include "config/PROPS.h"
 #include "functions/SOUND.h"
@@ -30,104 +26,29 @@ TaskHandle_t TaskServerHandler;
 TaskHandle_t TaskControlHandler;
 TaskHandle_t TaskAlarmHandler;
 
-void clearPref()
-{
-  Serial.println("clearPref");
-  nvs_flash_erase();   
-  nvs_flash_init();    
-  Serial.println("clearPref complited");
-}
 
 void setup()
 {
+  initSystemHardware();
   
-  Serial.begin(115200);
-  Serial.setDebugOutput(true);
- 
-  pinMode(select_cart_down_pin, INPUT);   
-
-  gpio_set_pull_mode(GPIO_NUM_33, GPIO_PULLUP_ONLY);
-  
-  int down_btn = digitalRead(select_cart_down_pin);
-
-  if (down_btn == LOW)
-  {
-    initRecoveryWifi();
-    initRecoveryServer();
-  }
-  else
-  {
+  if (isRecoveryModeActivated()) {
+    enterRecoveryMode();
+  } else {
     initMoto();
     
-    if (!preferences.begin("init_test", false)) 
-    {
-      preferences.end();
-      
-      clearPref();
-
-      if (!preferences.begin("init_test", false)) 
-      {
-        Serial.println("Hmmmmm wtf");
-        return;
-      }
-    }
-    else
-    {
-      if(preferences.getBool("init", false) == false)
-      {
-        preferences.end();
-        
-        clearPref();
-
-        if (!preferences.begin("init_test", false)) 
-        {
-          Serial.println("Hmmmmm wtf 2");
-          return;
-        }
-      }
+    if (!initializePreferences()) {
+      return;
     }
     
-    preferences.putBool("init", true);
-    preferences.end();
-    
-    Serial.println();
-    
-    if (!preferences.begin("ded_box", false)) 
-    {
-      Serial.println("Ошибка инициализации Preferences");
-  
-      nvs_flash_erase();     
-      nvs_flash_init();      
-
-      if (!preferences.begin("ded_box", false)) 
-      {
-        Serial.println("Ошибка повторной инициализации Preferences");
-
-        return;
-      }
+    if (!initializeMainPreferences()) {
+      return;
     }
     
-    loadConfig();
-
-    Serial.print("active_cart: ");
-    Serial.println(active_cart);
-    
-    xTaskCreatePinnedToCore(TaskServerCode,  "TaskServerHandler",  20000, NULL, 2, &TaskServerHandler,     0);
-    xTaskCreatePinnedToCore(TaskControlCode, "TaskControlHandler", 1024, NULL, 1, &TaskControlHandler,     0);
-
-    if (SOUND == true)
-    {
-      pinMode(select_cart_up_pin, OUTPUT);  
-      xTaskCreatePinnedToCore(TaskAlarmCode,   "TaskAlarmHandler",   2000, NULL, 1, &TaskAlarmHandler,   0);
-    }
+    setupConfiguration();
+    initSystemTasks();
   }
 
-  if (SOUND == true)
-  {
-    beep(1, 0, 150, 698.5);
-    beep(1, 0, 150, 880);
-    beep(1, 0, 150, 1050);
-  }
+  initSystemSound();
 }
 
 void loop() {
