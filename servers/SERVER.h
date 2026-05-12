@@ -1,0 +1,7 @@
+
+
+void handleServer()
+{
+  handelWebSocketData();
+  handleWebSocket();
+}
