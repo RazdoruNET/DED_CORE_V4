@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include "config/PROPS.h"
+#include "servers/WIFI_SERVER.h"
+#include "servers/WEB_SERVER_CLEAN.h"
 
 bool isRecoveryModeActivated() {
   int down_btn = digitalRead(select_cart_down_pin);

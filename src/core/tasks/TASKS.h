@@ -1,9 +1,6 @@
 #ifndef TASKS_H
 #define TASKS_H
 
-#include "MotoTask.h"
-#include "ServerTask.h"
-#include "ControlTask.h"
-#include "AlarmTask.h"
+#include "TASK_DECL.h"
 
 #endif // TASKS_H
