@@ -10,66 +10,84 @@ uint8_t temprature_sens_read();
 
 uint8_t temprature_sens_read();
 
-const int sensor_pin = 16;
-const int quickshifter_pin = 17;
-const int out_pin = 19;
-const int select_cart_up_pin = 32;
-const int select_cart_down_pin = 33;
-const int throttle_pin = 35;
+// Pin declarations - definitions in PINS_DEF.h
+extern const int sensor_pin;
+extern const int quickshifter_pin;
+extern const int out_pin;
+extern const int select_cart_up_pin;
+extern const int select_cart_down_pin;
+extern const int throttle_pin;
 
-boolean preferences_clear = false;
-boolean initSPIFFS = false;
+// Declare as extern to prevent multiple definitions
+extern boolean preferences_clear;
+extern boolean initSPIFFS;
 
-int select_cart_in_up_proces = 0;
-int select_cart_in_down_proces = 0;
+extern int select_cart_in_up_proces;
+extern int select_cart_in_down_proces;
 
-int quickshifter_proces = 0;
+extern int quickshifter_proces;
 
-int QS_start = 0;
-int QS_time = 135;
+extern int QS_start;
+extern int QS_time;
 
-int select_cart = 0;
-int select_qs = 0;
+extern boolean TROT_SENSER;
+extern boolean INIT_SYSTEM;
+extern boolean SOUND;
 
-String APSSID = "";
-String APPSK = "";
+extern int fps;
+extern int fps_time;
+extern int fps_sys;
+extern int fps_time_sys;
 
-String APSSID1 = "DED_BOX_V4";
-String APPSK1 = "162534Bnm123q";
-                 
-String serverName = "194.87.83.240";
+extern int active_cart;
 
-int updateServerPort = 443;
+extern boolean LOOP_FIRST_STEP;
 
-boolean INVERT_SENSOR = false;
-boolean INVERT_THROTTLE = false;
-boolean ANGLE_ADVANCE = false;
-boolean QUICKSHIFTER = false;
-boolean UPDATE_MODE = false;
-boolean UPDATE_RUN = false;
-boolean UPDATE_CORE = true;
-boolean SAVE_CONFIG = false;
-boolean AFTER_REBOOT = false;
-boolean CARTS_SWHITCHING = false;
+extern int start_micros;
+extern int alarm_micros;
+extern bool off_time_alarm;
 
-boolean HIGH_OUTPUT = true;
+extern int select_cart;
+extern int select_qs;
+extern int ANGLE_ADVANCE;
+extern int QUICKSHIFTER;
+extern int CARTS_SWHITCHING;
+extern int max_rpm;
+extern int max_rpm_angle_kiker;
+extern int Advance_angle;
+extern int RPM;
+extern int Termo;
+extern int Throttle;
+extern int Init_angle;
+extern int filter;
+extern boolean HIGH_OUTPUT;
+extern int Init_flash_time;
+extern boolean INVERT_SENSOR;
+extern boolean INVERT_THROTTLE;
+extern boolean SERVO;
+extern int Servo_position;
+extern int Servo_type;
+extern int Servo_rpm;
+extern int Servo_percent;
+extern int type;
 
-boolean SERVO = false;
-boolean TROT_SENSER = true;
-boolean INIT_SYSTEM = true;
+extern String APSSID1;
+extern String APPSK1;
+extern String APSSID;
+extern String APPSK;
 
-boolean SOUND = false;
+// Array declarations
+extern float rpmsArr[3][22];
+extern float anglesArr[3][22];
+extern int angles_adjustmentArr[22][3];
+extern int quick_adjustmentArr[22][3];
+extern int servo_valueArr[22][3];
 
-int fps = 0;
-int fps_time = 0;
-
-int fps_sys = 0;
-int fps_time_sys = 0;
-
-int active_cart = 0;
-
-boolean LOOP_FIRST_STEP = true;
-
-int start_micros = 0;
-int alarm_micros = 120000000;
-bool off_time_alarm = false;
+// Additional variables
+extern String serverName;
+extern int updateServerPort;
+extern boolean UPDATE_MODE;
+extern boolean UPDATE_RUN;
+extern boolean UPDATE_CORE;
+extern boolean SAVE_CONFIG;
+extern boolean AFTER_REBOOT;

@@ -1,9 +1,11 @@
-#include <DNSServer.h>
-#include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
+#include <Preferences.h>
+#include <WiFi.h>
 #include <AsyncTCP.h>
-
-AsyncWebServer server(80);
-DNSServer dnsServer;
+#include <SPIFFS.h>
+#include "config/PROPS.h"
+#include "core/ignition/carts/MOTO_CARTS.h"
+#include "WEB_SERVER_VARS.h"
 
 class CaptiveRequestHandler : public AsyncWebHandler {
 public:
@@ -15,37 +17,11 @@ public:
     return true;
   }
 
-  void handleRequest(AsyncWebServerRequest *request) {
-    // Serial.println("CaptiveRequestHandler handleRequest");
-    request->send(200, "text/html", "<script>window.location.href = 'http://192.168.4.1'</script> redirect now..."); 
-  }
 };
 
-void initServer() 
-{
-  // Serial.println("CORE");
-  // Serial.println(xPortGetCoreID());
-
-  if (preferences.getBool("initSPIFFS", false) == false)
-  {
-    preferences.putBool("initSPIFFS", true);
-    
-    SPIFFS.begin(true);
-  }
-  else
-  {
-    SPIFFS.begin();
-  }
-  
-  // Serial.println("SPIFFS server started");
-  
-  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
-  server.serveStatic("/favicon.ico", SPIFFS, "/favicon.ico");
-  server.serveStatic("/css/", SPIFFS, "/css/");
-  server.serveStatic("/js/", SPIFFS, "/js/");
-
-  server.on("/core/version", HTTP_GET, [] (AsyncWebServerRequest *request)
-  {
+// Function declarations - definitions in WEB_SERVER_FUNCS.h
+void initServer();
+void initRecoveryServer();
     request->send(200, "text/plain", FIRMWARE_VERSION);
    
   });

@@ -4,6 +4,13 @@
 #include <Arduino.h>
 #include "config/PROPS.h"
 #include "functions/SOUND.h"
+#include "core/ignition/Init.h"
+#include "core/tasks/TASKS.h"
+
+// Task handler declarations
+extern TaskHandle_t TaskServerHandler;
+extern TaskHandle_t TaskControlHandler;
+extern TaskHandle_t TaskAlarmHandler;
 
 void initSystemHardware() {
   Serial.begin(115200);

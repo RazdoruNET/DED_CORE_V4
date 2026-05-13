@@ -1,3 +1,5 @@
+#include <WiFi.h>
+
 void initWifi() 
 {
   WiFi.mode(WIFI_AP);

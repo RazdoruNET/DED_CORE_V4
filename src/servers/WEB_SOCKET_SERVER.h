@@ -1,9 +1,13 @@
-int socet_flash = 0;
-int pass = 0;
-int userIndex = -1;
-int modul = 0;
+#include <ArduinoJson.h>
+#include <WebSocketsServer.h>
+#include "config/PROPS.h"
 
-WebSocketsServer webSocket = WebSocketsServer(81);
+// WebSocket variable declarations - definitions in WEB_SOCKET_VARS.h
+extern int socet_flash;
+extern int pass;
+extern int userIndex;
+extern int modul;
+extern WebSocketsServer webSocket;
 
 void onEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) 
 {

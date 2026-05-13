@@ -135,30 +135,12 @@
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/Preferences/src/Preferences.h \
  src/core/init/SYSTEM_INIT.h src/config/PROPS.h src/functions/SOUND.h \
- src/core/preferences/PREFERENCES_MANAGER.h \
+ src/core/ignition/Init.h src/core/tasks/TASKS.h \
+ src/core/tasks/TASK_DECL.h src/core/preferences/PREFERENCES_MANAGER.h \
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/nvs_flash/include/nvs_flash.h \
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/nvs_flash/include/nvs.h \
- src/config/CONFIG.h src/core/recovery/RECOVERY_MODE.h src/config/PROPS.h \
- src/functions/SOUND.h src/core/ignition/MOTO.h \
- src/core/ignition/Variables.h src/core/ignition/Init.h \
- src/core/ignition/Flash.h src/core/ignition/Sensors.h \
- src/core/ignition/Ignition.h src/core/ignition/Utils.h \
- src/core/ignition/carts/MOTO_CARTS.h src/core/ignition/carts/RPMs.h \
- src/core/ignition/carts/Angles_SmartCom.h \
- src/core/ignition/carts/Angles_YX125.h \
- src/core/ignition/carts/Angles_YX140.h \
- src/core/ignition/carts/Angles_ZS190.h \
- src/core/ignition/carts/Angles_166FMM.h \
- src/core/ignition/carts/Angles_172FMM.h \
- src/core/ignition/carts/Angles_175FMM.h \
- src/core/ignition/carts/Angles_177FMM.h src/servers/WEB_SERVER.h \
- /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/DNSServer/src/DNSServer.h \
- /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiUdp.h \
- /Users/razdor/.platformio/packages/framework-arduinoespressif32/cores/esp32/Udp.h \
- /Users/razdor/.platformio/packages/framework-arduinoespressif32/cores/esp32/cbuf.h \
- .pio/libdeps/esp32dev/ESP\ Async\ WebServer/src/ESPAsyncWebServer.h \
- /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/FS/src/FS.h \
- .pio/libdeps/esp32dev/ESP\ Async\ WebServer/src/StringArray.h \
+ src/config/CONFIG.h src/core/recovery/RECOVERY_MODE.h \
+ src/servers/WIFI_SERVER.h \
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFi.h \
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/cores/esp32/Print.h \
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/cores/esp32/IPv6Address.h \
@@ -217,16 +199,160 @@
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiServer.h \
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/cores/esp32/Server.h \
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiUdp.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/cores/esp32/Udp.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/cores/esp32/cbuf.h \
+ src/servers/WEB_SERVER_CLEAN.h \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.h \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/version.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/DynamicJsonBuffer.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonBufferBase.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/JsonParser.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../JsonBuffer.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Data/NonCopyable.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../JsonVariant.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Data/JsonVariantContent.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Data/JsonFloat.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Data/../Configuration.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Data/JsonInteger.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Data/JsonVariantDefault.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Data/JsonVariantType.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../JsonVariantBase.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../JsonVariantCasts.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Data/JsonVariantAs.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Polyfills/attributes.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../JsonVariantComparisons.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/StringTraits.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/../TypeTraits/EnableIf.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/../TypeTraits/IsBaseOf.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/../TypeTraits/IsChar.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/../TypeTraits/IsSame.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/../TypeTraits/IsConst.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/../TypeTraits/RemoveReference.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/ArduinoStream.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/CharPointer.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/FlashString.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/StdStream.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../StringTraits/StdString.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../TypeTraits/IsVariant.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../JsonVariantOr.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../TypeTraits/IsIntegral.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../TypeTraits/IsSignedIntegral.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../TypeTraits/IsUnsignedIntegral.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../JsonVariantSubscripts.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/JsonPrintable.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/DummyPrint.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/DynamicStringBuilder.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/IndentedPrint.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/JsonSerializer.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/JsonWriter.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/../Data/Encoding.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/../Serialization/FloatParts.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/../Serialization/../Polyfills/math.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/../Serialization/../TypeTraits/FloatTraits.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/Prettyfier.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../Serialization/StaticStringBuilder.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../RawJson.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../TypeTraits/IsFloatingPoint.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../TypeTraits/RemoveConst.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/../TypeTraits/IsArray.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/StringWriter.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonArray.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Data/JsonBufferAllocated.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Data/List.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Data/ListConstIterator.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Data/ListNode.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Data/ListIterator.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Data/ReferenceType.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Data/ValueSaver.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonObject.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonPair.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/StaticJsonBuffer.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/JsonParserImpl.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Deserialization/Comments.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonArrayImpl.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonArraySubscript.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonBufferImpl.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonObjectImpl.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonObjectSubscript.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/JsonVariantImpl.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Polyfills/isFloat.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Polyfills/./ctype.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Polyfills/isInteger.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Polyfills/parseFloat.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Polyfills/parseInteger.hpp \
+ .pio/libdeps/esp32dev/ArduinoJson/src/ArduinoJson/Serialization/JsonSerializerImpl.hpp \
  .pio/libdeps/esp32dev/AsyncTCP/src/AsyncTCP.h \
  /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/pbuf.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/SPIFFS/src/SPIFFS.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/FS/src/FS.h \
+ .pio/libdeps/esp32dev/ESP\ Async\ WebServer/src/ESPAsyncWebServer.h \
+ .pio/libdeps/esp32dev/ESP\ Async\ WebServer/src/StringArray.h \
  .pio/libdeps/esp32dev/ESP\ Async\ WebServer/src/WebResponseImpl.h \
  .pio/libdeps/esp32dev/ESP\ Async\ WebServer/src/WebHandlerImpl.h \
  .pio/libdeps/esp32dev/ESP\ Async\ WebServer/src/AsyncWebSocket.h \
  .pio/libdeps/esp32dev/ESP\ Async\ WebServer/src/AsyncWebSynchronization.h \
  .pio/libdeps/esp32dev/ESP\ Async\ WebServer/src/AsyncEventSource.h \
- src/servers/WEB_SOCKET_SERVER.h src/servers/WIFI_SERVER.h \
- src/servers/SERVER.h src/config/CONFIG.h src/core/handlers/HANDLERS.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/DNSServer/src/DNSServer.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiUdp.h \
+ src/core/ignition/carts/MOTO_CARTS.h src/core/ignition/carts/RPMs.h \
+ src/core/ignition/carts/Angles_SmartCom.h \
+ src/core/ignition/carts/Angles_YX125.h \
+ src/core/ignition/carts/Angles_YX140.h \
+ src/core/ignition/carts/Angles_ZS190.h \
+ src/core/ignition/carts/Angles_166FMM.h \
+ src/core/ignition/carts/Angles_172FMM.h \
+ src/core/ignition/carts/Angles_175FMM.h \
+ src/core/ignition/carts/Angles_177FMM.h src/config/PROPS_DEF.h \
+ src/config/PINS_DEF.h src/servers/WEB_SOCKET_VARS.h \
+ .pio/libdeps/esp32dev/WebSockets/src/WebSocketsServer.h \
+ .pio/libdeps/esp32dev/WebSockets/src/WebSockets.h \
+ .pio/libdeps/esp32dev/WebSockets/src/WebSocketsVersion.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/WiFiClientSecure/src/WiFiClientSecure.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/WiFiClientSecure/src/ssl_client.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/platform.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/mbedtls/esp_config.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/config.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/check_config.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/esp_mem.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/platform_time.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/net.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/net_sockets.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/ssl.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/mbedtls/bignum.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/bignum.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/ecp.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/ssl_ciphersuites.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/pk.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/md.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/platform_util.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/rsa.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/ecdsa.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/cipher.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/x509_crt.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/x509.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/asn1.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/x509_crl.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/dhm.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/ecdh.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/debug.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/entropy.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/sha512.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/sha512_alt.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/hal/include/hal/sha_types.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_rom/include/esp32/rom/sha.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/ctr_drbg.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/aes.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/aes_alt.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/port/include/aes/esp_aes.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/hal/include/hal/aes_types.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/mbedtls/mbedtls/include/mbedtls/error.h \
+ src/core/ignition/MOTO.h src/core/ignition/Variables.h \
+ src/core/ignition/Init.h src/core/ignition/Flash.h \
+ src/core/ignition/Sensors.h src/core/ignition/Ignition.h \
+ src/core/ignition/Utils.h src/core/ignition/carts/MOTO_CARTS.h \
+ src/servers/WEB_SERVER_CLEAN.h src/servers/WEB_SERVER_FUNCS.h \
+ src/servers/WEB_SERVER_VARS.h src/core/handlers/HANDLERS_FUNCS.h \
+ src/servers/WEB_SOCKET_FUNCS.h src/core/handlers/HANDLERS.h \
  src/core/handlers/QuickShifter.h src/core/handlers/CartSelection.h \
- src/core/handlers/Alarm.h src/core/tasks/TASKS.h \
- src/core/tasks/MotoTask.h src/core/tasks/ServerTask.h \
- src/core/tasks/ControlTask.h src/core/tasks/AlarmTask.h
+ src/core/handlers/Alarm.h src/core/tasks/TASKS.h
