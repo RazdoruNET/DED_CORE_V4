@@ -1,19 +1,29 @@
-# DED_CORE_V4 Ignition System Core - Technical Guide
+# DED_CORE_V4 Ядро системы зажигания - Техническое руководство
 
-This document provides comprehensive technical documentation for the ignition system core, focusing on mathematical formulas, timing diagrams, and extensible code points.
+**Этот документ был декомпозирован на отдельные разделы для лучшей навигации и сопровождения.**
 
-## Table of Contents
+Используйте навигацию ниже для доступа к конкретным разделам документации:
 
-1. [Mathematical Foundations](#1-mathematical-foundations)
-2. [Timing Diagrams](#2-timing-diagrams)
-3. [Flowcharts](#3-flowcharts)
-4. [Extensible Code Points](#4-extensible-code-points)
-5. [Code Examples with Motor Context](#5-code-examples-with-motor-context)
-6. [Configuration Parameters](#6-configuration-parameters)
+## Разделы документации
+
+- **[01. Математические основы](ignition/01-mathematical-foundations.md)** - Расчет RPM, угол опережения зажигания, время искры, положение дросселя
+- **[02. Временные диаграммы](ignition/02-timing-diagrams.md)** - Датчик ВМТ, синхронизация зажигания, QuickShifter, работа сервопривода
+- **[03. Блок-схемы](ignition/03-flowcharts.md)** - Основной цикл, расчет угла, фильтрация RPM, алгоритмы управления зажиганием
+- **[04. Расширяемые места кода](ignition/04-extensible-code-points.md)** - Добавление новых карт, кастомные алгоритмы, новые датчики
+- **[05. Примеры кода](ignition/05-code-examples.md)** - Адаптивный QuickShifter, сплайн-интерполяция, фильтр Калмана, корректировка по температуре
+- **[06. Конфигурационные параметры](ignition/06-configuration-parameters.md)** - Основные параметры, функциональные флаги, настройки сервопривода и QuickShifter
+
+## Быстрая навигация
+
+- **[← Назад к README технической документации](README.md)**
+- **[Начать с математических основ →](ignition/01-mathematical-foundations.md)**
 
 ---
 
-## 1. Mathematical Foundations
+**Версия документа:** 1.0  
+**Последнее обновление:** 2024  
+**Целевая система:** DED_CORE_V4 Ядро системы зажигания  
+**Область:** Только ядро системы зажигания (WEB_SERVER.h исключен)
 
 ### 1.1 Engine RPM Calculation
 
