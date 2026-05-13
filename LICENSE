@@ -1,47 +1,50 @@
-DED CORE V4 - License Agreement
+DED CORE V4 - Лицензионное соглашение
 
-Copyright (c) 2022 Иванов Михаил Сергеевич (WE RAZDOR), Богданова Екатерина Сергеевна (L_CNC) 
+Авторское право (c) 2022 Иванов Михаил Сергеевич (WE RAZDOR), Богданова Екатерина Сергеевна (L_CNC)
 
-This software ("DED CORE V4") is licensed under the following terms:
+Данное программное обеспечение ("DED CORE V4") лицензируется на следующих условиях:
 
-PERMISSIONS
------------
-You are granted the right to:
-- Use this software for personal, educational, and non-commercial purposes
-- View, study, and modify the source code for your own understanding
-- Distribute unmodified copies of this software to others
-- Submit bug reports and suggestions for improvement
+РАЗРЕШЕННОЕ ИСПОЛЬЗОВАНИЕ
+-------------------------
+Вам предоставляется право:
+- Использовать данное программное обеспечение в личных, образовательных и некоммерческих целях
+- Просматривать, изучать и изменять исходный код для собственного понимания
+- Распространять неизмененные копии данного программного обеспечения
+- Отправлять отчеты об ошибках и предложения по улучшению
 
-RESTRICTIONS
+ОГРАНИЧЕНИЯ
 ------------
-Commercial use of this software, in whole or in part, is strictly prohibited without explicit written permission from the copyright holder. Commercial use includes but is not limited to:
-- Selling products or services that incorporate this software
-- Using this software in revenue-generating applications
-- Distributing modified versions for commercial purposes
-- Using this software as part of a commercial product or service
+Коммерческое использование данного программного обеспечения, полностью или частично, строго запрещено без явного письменного разрешения правообладателя. Коммерческое использование включает, но не ограничивается:
+- Продажей продуктов или услуг, включающих данное программное обеспечение
+- Использованием данного программного обеспечения в приложениях, приносящих доход
+- Распространением измененных версий в коммерческих целях
+- Использованием данного программного обеспечения как части коммерческого продукта или услуги
 
-INTELLECTUAL PROPERTY
----------------------
-All portions of this software, including but not limited to:
-- Source code files
-- Binary executables
-- Documentation
-- Configuration files
-- Libraries and dependencies
+ИНТЕЛЛЕКТУАЛЬНАЯ СОБСТВЕННОСТЬ
+--------------------------------
+Все части данного программного обеспечения, включая, но не ограничиваясь:
+- Файлы исходного кода
+- Исполняемые файлы
+- Документацию
+- Файлы конфигурации
+- Библиотеки и зависимости
 
-Are the intellectual property of the copyright holder. No part of this software may be reproduced, modified, or distributed without proper attribution and compliance with these license terms.
+Являются интеллектуальной собственностью правообладателя. Никакая часть данного программного обеспечения не может быть воспроизведена, изменена или распространена без надлежащего указания авторства и соблюдения условий данной лицензии.
 
-DISCLAIMER
-----------
-This software is provided "AS IS", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement.
+ОТКАЗ ОТ ОТВЕТСТВЕННОСТИ
+-------------------------
+Данное программное обеспечение предоставляется "КАК ЕСТЬ", без каких-либо гарантий, явных или подразумеваемых, включая, но не ограничиваясь гарантиями товарной пригодности, пригодности для конкретной цели и отсутствия нарушений прав.
 
-CONTACT
--------
-For commercial licensing inquiries, please contact:
+КОНТАКТНАЯ ИНФОРМАЦИЯ
+----------------------
+Для запросов о коммерческом лицензировании, пожалуйста, свяжитесь:
 
 razdoru.net@yandex.ru
 katya.bog2311@gmail.com
-
 https://vk.com/ded_moto_sys
 
-This license shall be governed by and construed in accordance with the laws of Россия Великий Новгород.
+Данная лицензия регулируется и толкуется в соответствии с законодательством Россия Великий Новгород.
+
+---
+
+English version available in LICENSE_EN file.
