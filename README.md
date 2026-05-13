@@ -165,12 +165,7 @@ ESP32 Pinout:
 
 ## 📞 Поддержка
 
-- **Документация** - полный набор руководств
-- **Форум** - обсуждение проблем
-- **GitHub Issues** - отчеты об ошибках
-- **Email** - техническая поддержка
-
-[Группа ВКонтакте](https://vk.com/ded_moto_sys)
+- [Группа ВКонтакте](https://vk.com/ded_moto_sys)
 [Группа Telegram](https://t.me/DED_MOTO_SYSTEM)
 [Курилка Telegram](https://t.me/+kN1d2EnrmdkyYmFi)
 
