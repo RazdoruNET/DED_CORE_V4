@@ -91,3 +91,9 @@ extern boolean UPDATE_RUN;
 extern boolean UPDATE_CORE;
 extern boolean SAVE_CONFIG;
 extern boolean AFTER_REBOOT;
+
+// OTA Configuration
+extern int OTA_MODE;
+extern String OTA_PASSWORD;
+extern String OTA_JWT_TOKEN;
+extern unsigned long OTA_CHECK_INTERVAL;
