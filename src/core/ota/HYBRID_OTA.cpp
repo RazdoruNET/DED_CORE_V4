@@ -44,15 +44,15 @@ String HybridOTAManager::getModeString() {
             return "AUTO";
         case OtaMode::MANUAL:
             return "MANUAL";
-        case OtaMode::DISABLED:
-            return "DISABLED";
+        case OtaMode::OFF:
+            return "OFF";
         default:
             return "UNKNOWN";
     }
 }
 
 bool HybridOTAManager::checkForUpdate() {
-    if (!initialized || mode == OtaMode::DISABLED) {
+    if (!initialized || mode == OtaMode::OFF) {
         Serial.println("OTA disabled or not initialized");
         return false;
     }
@@ -65,7 +65,7 @@ bool HybridOTAManager::checkForUpdate() {
 }
 
 bool HybridOTAManager::performUpdate() {
-    if (!initialized || mode == OtaMode::DISABLED) {
+    if (!initialized || mode == OtaMode::OFF) {
         Serial.println("OTA disabled or not initialized");
         return false;
     }

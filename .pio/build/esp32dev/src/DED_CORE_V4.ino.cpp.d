@@ -352,7 +352,16 @@
  src/core/ignition/Sensors.h src/core/ignition/Ignition.h \
  src/core/ignition/Utils.h src/core/ignition/carts/MOTO_CARTS.h \
  src/servers/WEB_SERVER_CLEAN.h src/servers/WEB_SERVER_FUNCS.h \
- src/servers/WEB_SERVER_VARS.h src/core/handlers/HANDLERS_FUNCS.h \
- src/servers/WEB_SOCKET_FUNCS.h src/core/handlers/HANDLERS.h \
- src/core/handlers/QuickShifter.h src/core/handlers/CartSelection.h \
- src/core/handlers/Alarm.h src/core/tasks/TASKS.h
+ src/servers/WEB_SERVER_VARS.h src/core/ota/HYBRID_OTA.h \
+ src/core/ota/OTA_MANAGER.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/HTTPClient/src/HTTPClient.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiClient.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/Update/src/Update.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/cores/esp32/MD5Builder.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_rom/include/esp_rom_md5.h \
+ src/core/ota/ARDUINO_OTA.h \
+ /Users/razdor/.platformio/packages/framework-arduinoespressif32/libraries/ArduinoOTA/src/ArduinoOTA.h \
+ src/core/handlers/HANDLERS_FUNCS.h src/servers/WEB_SOCKET_FUNCS.h \
+ src/core/handlers/HANDLERS.h src/core/handlers/QuickShifter.h \
+ src/core/handlers/CartSelection.h src/core/handlers/Alarm.h \
+ src/core/tasks/TASKS.h

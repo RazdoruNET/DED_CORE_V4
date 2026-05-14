@@ -3,7 +3,6 @@
 
 #include <HTTPClient.h>
 #include <Update.h>
-#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include "config/PROPS.h"
 

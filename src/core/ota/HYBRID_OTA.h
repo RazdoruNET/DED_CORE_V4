@@ -7,7 +7,7 @@
 enum class OtaMode {
     AUTO,      // Автоматическое обновление с сервера
     MANUAL,    // Ручное обновление через ArduinoOTA
-    DISABLED   // Обновления отключены
+    OFF        // Обновления отключены
 };
 
 class HybridOTAManager {
