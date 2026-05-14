@@ -41,6 +41,11 @@ boolean loadConfig() {
   UPDATE_MODE = preferences.getBool("UPDATE_MODE",UPDATE_MODE);
   UPDATE_CORE = preferences.getBool("UPDATE_CORE",UPDATE_CORE);
   INIT_SYSTEM = preferences.getBool("INIT_SYSTEM",INIT_SYSTEM);
+  
+  // OTA Configuration
+  OTA_MODE = preferences.getInt("OTA_MODE", OTA_MODE);
+  OTA_PASSWORD = preferences.getString("OTA_PASSWORD", OTA_PASSWORD);
+  OTA_JWT_TOKEN = preferences.getString("OTA_JWT_TOKEN", OTA_JWT_TOKEN);
 
   Serial.print("Init_angle");
   Serial.println(Init_angle);

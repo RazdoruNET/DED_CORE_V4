@@ -6,6 +6,9 @@
 #include "config/PROPS.h"
 #include "core/ignition/carts/MOTO_CARTS.h"
 #include "WEB_SERVER_VARS.h"
+#include "core/ota/HYBRID_OTA.h"
+
+extern HybridOTAManager otaManager;
 
 class CaptiveRequestHandler : public AsyncWebHandler {
 public:
@@ -504,7 +507,76 @@ void initRecoveryServer();
     }
     request->send(200, "text/plain", "OK");
   });
- 
+
+  // OTA Endpoints
+  server.on("/ota/check", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    bool updateAvailable = otaManager.checkForUpdate();
+    FirmwareInfo info = otaManager.getLastFirmwareInfo();
+    
+    String response = "{";
+    response += "\"updateAvailable\":" + String(updateAvailable ? "true" : "false") + ",";
+    response += "\"currentVersion\":\"" + otaManager.getCurrentVersion() + "\",";
+    response += "\"mode\":\"" + otaManager.getModeString() + "\"";
+    
+    if (updateAvailable) {
+      response += ",\"newVersion\":\"" + info.version + "\",";
+      response += "\"size\":" + String(info.size) + ",";
+      response += "\"md5\":\"" + info.md5 + "\",";
+      response += "\"changelog\":\"" + info.changelog + "\"";
+    }
+    
+    response += "}";
+    request->send(200, "application/json", response);
+  });
+
+  server.on("/ota/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    String response = "{";
+    response += "\"currentVersion\":\"" + otaManager.getCurrentVersion() + "\",";
+    response += "\"mode\":\"" + otaManager.getModeString() + "\",";
+    response += "\"initialized\":" + String(otaManager.isInitialized() ? "true" : "false") + ",";
+    response += "\"updateMode\":" + String(UPDATE_MODE ? "true" : "false");
+    response += "}";
+    request->send(200, "application/json", response);
+  });
+
+  server.on("/ota/update", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    bool success = otaManager.performUpdate();
+    
+    if (success) {
+      request->send(200, "text/plain", "Update initiated, rebooting...");
+    } else {
+      request->send(500, "text/plain", "Update failed");
+    }
+  });
+
+  server.on("/ota/mode", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if (request->hasParam("mode")) {
+      int mode = request->getParam("mode")->value().toInt();
+      OTA_MODE = mode;
+      preferences.putInt("OTA_MODE", OTA_MODE);
+      
+      OtaMode otaMode = static_cast<OtaMode>(mode);
+      otaManager.setMode(otaMode);
+      
+      request->send(200, "application/json", "{\"mode\":\"" + otaManager.getModeString() + "\"}");
+    } else {
+      request->send(400, "text/plain", "Missing mode parameter");
+    }
+  });
+
+  server.on("/ota/password", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if (request->hasParam("password")) {
+      String password = request->getParam("password")->value();
+      OTA_PASSWORD = password;
+      preferences.putString("OTA_PASSWORD", OTA_PASSWORD);
+      otaManager.setArduinoOTAPassword(password);
+      
+      request->send(200, "text/plain", "OK");
+    } else {
+      request->send(400, "text/plain", "Missing password parameter");
+    }
+  });
+
   server.onNotFound([](AsyncWebServerRequest * request) {
     request->redirect("/");
   });

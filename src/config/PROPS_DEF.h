@@ -69,7 +69,7 @@ boolean SAVE_CONFIG = false;
 boolean AFTER_REBOOT = false;
 
 // OTA Configuration
-int OTA_MODE = 0; // 0=AUTO, 1=MANUAL, 2=DISABLED
+int OTA_MODE = 0; // 0=AUTO, 1=MANUAL, 2=OFF
 String OTA_PASSWORD = "ded_ota_secure";
 String OTA_JWT_TOKEN = "";
 unsigned long OTA_CHECK_INTERVAL = 3600000; // 1 hour

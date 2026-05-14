@@ -2,7 +2,7 @@
 
 OTAManager::OTAManager() {
     firmwareServerURL = "http://" + serverName + ":8000/api/firmware";
-    currentVersion = FIRMWARE_VERSION;
+    currentVersion = "0.0.1";
     jwtToken = "";
     lastCheckTime = 0;
     initialized = false;
@@ -35,23 +35,22 @@ bool OTAManager::isInitialized() {
 }
 
 bool OTAManager::parseFirmwareInfo(const String& json, FirmwareInfo& info) {
-    DynamicJsonDocument doc(1024);
-    DeserializationError error = deserializeJson(doc, json);
+    StaticJsonBuffer<1024> jsonBuffer;
+    JsonObject& root = jsonBuffer.parseObject(json);
     
-    if (error) {
-        Serial.print("JSON parse error: ");
-        Serial.println(error.c_str());
+    if (!root.success()) {
+        Serial.println("JSON parse error");
         return false;
     }
     
-    info.updateAvailable = doc["updateAvailable"] | false;
+    info.updateAvailable = root["updateAvailable"];
     
     if (info.updateAvailable) {
-        info.version = doc["version"] | "";
-        info.url = doc["downloadUrl"] | "";
-        info.size = doc["size"] | 0;
-        info.md5 = doc["md5"] | "";
-        info.changelog = doc["changelog"] | "";
+        info.version = root["version"].as<String>();
+        info.url = root["downloadUrl"].as<String>();
+        info.size = root["size"];
+        info.md5 = root["md5"].as<String>();
+        info.changelog = root["changelog"].as<String>();
         
         Serial.println("Update available:");
         Serial.print("  Version: ");
