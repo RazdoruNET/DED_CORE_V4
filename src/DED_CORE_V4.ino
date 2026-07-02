@@ -15,7 +15,6 @@ Preferences preferences;
 #include "core/ignition/carts/MOTO_CARTS.h"
 #include "servers/WEB_SERVER_CLEAN.h"
 #include "servers/WEB_SERVER_FUNCS.h"
-#include "servers/WIFI_SERVER.h"
 #include "core/ota/HYBRID_OTA.h"
 
 // Function declarations

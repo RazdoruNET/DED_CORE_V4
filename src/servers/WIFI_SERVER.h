@@ -5,6 +5,10 @@
 extern Preferences preferences;
 extern HybridOTAManager otaManager;
 
+// Forward declarations
+bool connectToConfiguredWifi();
+void handleWifiAutoUpdate();
+
 void initWifi() 
 {
   WiFi.mode(WIFI_AP_STA);

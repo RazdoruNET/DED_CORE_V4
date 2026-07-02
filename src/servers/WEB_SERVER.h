@@ -430,7 +430,145 @@ void initRecoveryServer();
       preferences.putBool("WIFI_AUTO_UPDATE_ENABLED", WIFI_AUTO_UPDATE_ENABLED);
     }
 
-    request->send(200, "application/json", "{\"enabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? "true" : "false") + ",\"ssid\":\"" + WIFI_UPDATE_SSID + "\",\"status\":\"" + WIFI_UPDATE_STATUS + "\"}");
+    request->send(200, "application/json", "{\"enabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? "true" : "false") + ",\"ssid\":\"" + WIFI_UPDATE_SSID + "\",\"status\":\"" + WIFI_UPDATE_STATUS + "\",\"pass_set\":" + String(WIFI_UPDATE_PASSWORD.length() > 0 ? "true" : "false") + ",\"connected\":" + String(WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID ? "true" : "false") + ",\"last_check_time\":" + String(WIFI_LAST_CHECK_TIME) + ",\"last_attempt_time\":" + String(WIFI_LAST_ATTEMPT_TIME) + ",\"retry_interval_ms\":" + String(WIFI_RETRY_INTERVAL_MS) + ",\"next_allowed_check_ms\":" + String((WIFI_LAST_ATTEMPT_TIME==0)?0:((WIFI_LAST_ATTEMPT_TIME+WIFI_RETRY_INTERVAL_MS)-millis())) + "}");
+  });
+
+  // Device status endpoint
+  server.on("/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    bool sta_connected = (WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID);
+    FirmwareInfo info = otaManager.getLastFirmwareInfo();
+
+    String response = "{";
+    response += "\"wifi\":{";
+    response += "\"mode\":\"" + String((WiFi.getMode() == WIFI_MODE_AP) ? "ap" : (WiFi.getMode() == WIFI_MODE_STA ? "sta" : "ap_sta")) + "\",";
+    response += "\"ap_ssid\":\"" + APSSID1 + "\",";
+    response += "\"sta_ssid\":\"" + WIFI_UPDATE_SSID + "\",";
+    response += "\"sta_connected\":" + String(sta_connected ? "true" : "false") + ",";
+    response += "\"status\":\"" + WIFI_UPDATE_STATUS + "\",";
+    response += "\"last_check_time\":" + String(WIFI_LAST_CHECK_TIME) + ",";
+    response += "\"last_attempt_time\":" + String(WIFI_LAST_ATTEMPT_TIME) + ",";
+    unsigned long next_check = 0;
+    if (WIFI_LAST_ATTEMPT_TIME != 0) next_check = (WIFI_LAST_ATTEMPT_TIME + WIFI_RETRY_INTERVAL_MS > millis()) ? (WIFI_LAST_ATTEMPT_TIME + WIFI_RETRY_INTERVAL_MS - millis()) : 0;
+    response += "\"next_check_ms\":" + String(next_check);
+    response += "},";
+
+    response += "\"ota\":{";
+    response += "\"currentVersion\":\"" + otaManager.getCurrentVersion() + "\",";
+    response += "\"mode\":\"" + otaManager.getModeString() + "\",";
+    response += "\"initialized\":" + String(otaManager.isInitialized() ? "true" : "false") + ",";
+    response += "\"updateMode\":" + String(UPDATE_MODE ? "true" : "false") + ",";
+    bool updateAvailable = otaManager.getLastFirmwareInfo().updateAvailable;
+    response += "\"updateAvailable\":" + String(updateAvailable ? "true" : "false") + ",";
+    response += "\"lastFirmwareInfo\":{";
+    response += "\"version\":\"" + info.version + "\",";
+    response += "\"size\":\"" + String(info.size) + "\",";
+    response += "\"md5\":\"" + info.md5 + "\",";
+    response += "\"changelog\":\"" + info.changelog + "\"";
+    response += "}";
+    response += "},";
+
+    response += "\"motor\":{";
+    response += "\"rpm\":" + String(RPM) + ",";
+    response += "\"throttle\":" + String(Throttle) + ",";
+    response += "\"motor_running\":" + String(RPM > 0 ? "true" : "false");
+    response += "},";
+
+    response += "\"config\":{";
+    response += "\"autoUpdateEnabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? "true" : "false") + ",";
+    response += "\"wifiUpdateSSID\":\"" + WIFI_UPDATE_SSID + "\",";
+    response += "\"wifiPasswordSet\":" + String(WIFI_UPDATE_PASSWORD.length() > 0 ? "true" : "false") + ",";
+    response += "\"wifiConnected\":" + String(sta_connected ? "true" : "false") + ",";
+    response += "\"retryIntervalMs\":" + String(WIFI_RETRY_INTERVAL_MS) + ",";
+    response += "\"nextCheckMs\":" + String(next_check);
+    response += "}";
+
+    response += "}";
+
+    request->send(200, "application/json", response);
+  });
+
+  // Cart type metadata endpoint
+  server.on("/cart/types", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    String resp = "{";
+    resp += "\"types\":[";
+    resp += "{\"id\":0,\"label\":\"7-point default\",\"points\":7},";
+    resp += "{\"id\":1,\"label\":\"12-point medium\",\"points\":12},";
+    resp += "{\"id\":2,\"label\":\"22-point large\",\"points\":22}";
+    resp += "]}";
+    request->send(200, "application/json", resp);
+  });
+
+  // Device configuration endpoint
+  server.on("/device/config", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    String resp = "{";
+    resp += "\"activeCart\":" + String(active_cart) + ",";
+    resp += "\"type\":" + String(type) + ",";
+    resp += "\"autoUpdateEnabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? "true" : "false") + ",";
+    resp += "\"wifiUpdateSSID\":\"" + WIFI_UPDATE_SSID + "\",";
+    resp += "\"wifiPasswordSet\":" + String(WIFI_UPDATE_PASSWORD.length() > 0 ? "true" : "false") + ",";
+    resp += "\"quickShifterEnabled\":" + String(QUICKSHIFTER ? "true" : "false") + ",";
+    resp += "\"angleAdvance\":" + String(ANGLE_ADVANCE ? "true" : "false") + ",";
+    resp += "\"servoEnabled\":" + String(SERVO ? "true" : "false") + ",";
+    resp += "\"servoType\":" + String(Servo_type) + ",";
+    resp += "\"servoRpm\":" + String(Servo_rpm) + ",";
+    resp += "\"servoPercent\":" + String(Servo_percent) + ",";
+    resp += "\"invertSensor\":" + String(INVERT_SENSOR ? "true" : "false") + ",";
+    resp += "\"invertThrottle\":" + String(INVERT_THROTTLE ? "true" : "false") + ",";
+    resp += "\"maxRpm\":" + String(max_rpm) + ",";
+    resp += "\"maxRpmAngleKicker\":" + String(max_rpm_angle_kiker);
+    resp += "}";
+    request->send(200, "application/json", resp);
+  });
+
+  // WiFi scan endpoint
+  server.on("/wifi/scan", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    int n = WiFi.scanNetworks();
+    String resp = "{";
+    resp += "\"networks\": [";
+    for (int i = 0; i < n; ++i) {
+      resp += "{";
+      resp += "\"ssid\":\"" + WiFi.SSID(i) + "\",";
+      resp += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
+      resp += "\"secure\":" + String(WiFi.encryptionType(i) != WIFI_AUTH_OPEN ? "true" : "false") + ",";
+      resp += "\"channel\":" + String(WiFi.channel(i));
+      resp += "}";
+      if (i < n-1) resp += ",";
+    }
+    resp += "]}";
+    request->send(200, "application/json", resp);
+  });
+
+  // Manual connect endpoint
+  server.on("/wifi/connect", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if (request->hasParam("ssid")) {
+      WIFI_UPDATE_SSID = request->getParam("ssid")->value();
+      preferences.putString("WIFI_UPDATE_SSID", WIFI_UPDATE_SSID);
+    }
+    if (request->hasParam("pass")) {
+      WIFI_UPDATE_PASSWORD = request->getParam("pass")->value();
+      preferences.putString("WIFI_UPDATE_PASSWORD", WIFI_UPDATE_PASSWORD);
+    }
+
+    bool started = false;
+    bool connected = false;
+    if (WIFI_UPDATE_SSID.length() > 0) {
+      started = true;
+      WiFi.begin(WIFI_UPDATE_SSID.c_str(), WIFI_UPDATE_PASSWORD.c_str());
+      unsigned long start = millis();
+      while (millis() - start < 15000) {
+        if (WiFi.status() == WL_CONNECTED) { connected = true; break; }
+        delay(100);
+      }
+    }
+
+    String out = "{";
+    out += "\"started\":" + String(started ? "true" : "false") + ",";
+    out += "\"target_ssid\":\"" + WIFI_UPDATE_SSID + "\",";
+    out += "\"status\":\"" + String(connected ? "connected" : "connect_failed") + "\",";
+    out += "\"passwordSet\":" + String(WIFI_UPDATE_PASSWORD.length() > 0 ? "true" : "false") + ",";
+    out += "\"connected\":" + String((WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID) ? "true" : "false") + "";
+    out += "}";
+    request->send(200, "application/json", out);
   });
 
   server.on("/quickshifter", HTTP_GET, [] (AsyncWebServerRequest *request) 
@@ -550,11 +688,28 @@ void initRecoveryServer();
   });
 
   server.on("/ota/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    FirmwareInfo info = otaManager.getLastFirmwareInfo();
+    bool updateAvailable = info.updateAvailable;
+    bool connected = (WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID);
+
     String response = "{";
     response += "\"currentVersion\":\"" + otaManager.getCurrentVersion() + "\",";
     response += "\"mode\":\"" + otaManager.getModeString() + "\",";
     response += "\"initialized\":" + String(otaManager.isInitialized() ? "true" : "false") + ",";
-    response += "\"updateMode\":" + String(UPDATE_MODE ? "true" : "false");
+    response += "\"updateMode\":" + String(UPDATE_MODE ? "true" : "false") + ",";
+    response += "\"updateAvailable\":" + String(updateAvailable ? "true" : "false") + ",";
+    response += "\"lastFirmwareInfo\":{";
+    response += "\"version\":\"" + info.version + "\",";
+    response += "\"size\":" + String(info.size) + ",";
+    response += "\"md5\":\"" + info.md5 + "\",";
+    response += "\"changelog\":\"" + info.changelog + "\"";
+    response += "},";
+    response += "\"wifiAutoUpdateEnabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? "true" : "false") + ",";
+    response += "\"wifiUpdateSSID\":\"" + WIFI_UPDATE_SSID + "\",";
+    response += "\"wifiConnected\":" + String(connected ? "true" : "false") + ",";
+    response += "\"lastCheckTime\":" + String(WIFI_LAST_CHECK_TIME) + ",";
+    response += "\"lastAttemptTime\":" + String(WIFI_LAST_ATTEMPT_TIME) + ",";
+    response += "\"retryIntervalMs\":" + String(WIFI_RETRY_INTERVAL_MS);
     response += "}";
     request->send(200, "application/json", response);
   });

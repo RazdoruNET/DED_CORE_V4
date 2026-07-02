@@ -133,6 +133,15 @@ String getDataJson()
   data["servo_rpm"] = Servo_rpm;
   data["servo_percent"] = Servo_percent;
   data["type"] = type;
+  data["wifi_auto_update_enabled"] = WIFI_AUTO_UPDATE_ENABLED ? 1 : 0;
+  data["wifi_update_ssid"] = WIFI_UPDATE_SSID;
+  data["wifi_update_status"] = WIFI_UPDATE_STATUS;
+  data["wifi_last_check_time"] = WIFI_LAST_CHECK_TIME;
+  data["wifi_last_attempt_time"] = WIFI_LAST_ATTEMPT_TIME;
+  data["wifi_connected"] = (WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID) ? 1 : 0;
+  data["ota_update_available"] = otaManager.getLastFirmwareInfo().updateAvailable ? 1 : 0;
+  data["ota_last_version"] = otaManager.getLastFirmwareInfo().version;
+  data["motor_running"] = (RPM > 0) ? 1 : 0;
   
   JsonArray& rpm_array = jsonBuffer.createArray();
   JsonArray& servo_array = jsonBuffer.createArray();
