@@ -360,8 +360,8 @@
  src/core/ignition/Sensors.h src/core/ignition/Ignition.h \
  src/core/ignition/Utils.h src/core/ignition/carts/MOTO_CARTS.h \
  src/servers/WEB_SERVER_CLEAN.h src/servers/WEB_SERVER_FUNCS.h \
- src/servers/WEB_SERVER_VARS.h src/servers/WIFI_SERVER.h \
- src/core/ota/HYBRID_OTA.h src/core/handlers/HANDLERS_FUNCS.h \
- src/servers/WEB_SOCKET_FUNCS.h src/core/handlers/HANDLERS.h \
- src/core/handlers/QuickShifter.h src/core/handlers/CartSelection.h \
- src/core/handlers/Alarm.h src/core/tasks/TASKS.h
+ src/servers/WEB_SERVER_VARS.h src/core/ota/HYBRID_OTA.h \
+ src/core/handlers/HANDLERS_FUNCS.h src/servers/WEB_SOCKET_FUNCS.h \
+ src/core/handlers/HANDLERS.h src/core/handlers/QuickShifter.h \
+ src/core/handlers/CartSelection.h src/core/handlers/Alarm.h \
+ src/core/tasks/TASKS.h
