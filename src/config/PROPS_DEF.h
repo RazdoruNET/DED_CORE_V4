@@ -58,6 +58,15 @@ String APPSK1 = "162534Bnm123q";
 
 String APSSID = "";
 String APPSK = "";
+bool WIFI_AUTO_UPDATE_ENABLED = false;
+String WIFI_UPDATE_SSID = "";
+String WIFI_UPDATE_PASSWORD = "";
+unsigned long WIFI_LAST_CHECK_TIME = 0;
+unsigned long WIFI_LAST_ATTEMPT_TIME = 0;
+String WIFI_UPDATE_STATUS = "idle";
+unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000;
+unsigned long WIFI_RETRY_INTERVAL_MS = 600000;
+unsigned long WIFI_CHECK_INTERVAL_MS = 1800000;
 
 String serverName = "194.87.83.240";
 int updateServerPort = 443;

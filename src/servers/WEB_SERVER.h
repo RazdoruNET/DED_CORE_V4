@@ -413,6 +413,26 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
+  server.on("/wifi/auto", HTTP_GET, [] (AsyncWebServerRequest *request) 
+  {
+    if (request->hasParam("ssid")) {
+      WIFI_UPDATE_SSID = request->getParam("ssid")->value();
+      preferences.putString("WIFI_UPDATE_SSID", WIFI_UPDATE_SSID);
+    }
+
+    if (request->hasParam("pass")) {
+      WIFI_UPDATE_PASSWORD = request->getParam("pass")->value();
+      preferences.putString("WIFI_UPDATE_PASSWORD", WIFI_UPDATE_PASSWORD);
+    }
+
+    if (request->hasParam("enabled")) {
+      WIFI_AUTO_UPDATE_ENABLED = (request->getParam("enabled")->value().toInt() == 1);
+      preferences.putBool("WIFI_AUTO_UPDATE_ENABLED", WIFI_AUTO_UPDATE_ENABLED);
+    }
+
+    request->send(200, "application/json", "{\"enabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? "true" : "false") + ",\"ssid\":\"" + WIFI_UPDATE_SSID + "\",\"status\":\"" + WIFI_UPDATE_STATUS + "\"}");
+  });
+
   server.on("/quickshifter", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("status")) 

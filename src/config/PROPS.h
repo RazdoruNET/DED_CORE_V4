@@ -75,6 +75,15 @@ extern String APSSID1;
 extern String APPSK1;
 extern String APSSID;
 extern String APPSK;
+extern bool WIFI_AUTO_UPDATE_ENABLED;
+extern String WIFI_UPDATE_SSID;
+extern String WIFI_UPDATE_PASSWORD;
+extern unsigned long WIFI_LAST_CHECK_TIME;
+extern unsigned long WIFI_LAST_ATTEMPT_TIME;
+extern String WIFI_UPDATE_STATUS;
+extern unsigned long WIFI_CONNECT_TIMEOUT_MS;
+extern unsigned long WIFI_RETRY_INTERVAL_MS;
+extern unsigned long WIFI_CHECK_INTERVAL_MS;
 
 // Array declarations
 extern float rpmsArr[3][22];

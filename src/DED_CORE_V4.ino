@@ -15,6 +15,7 @@ Preferences preferences;
 #include "core/ignition/carts/MOTO_CARTS.h"
 #include "servers/WEB_SERVER_CLEAN.h"
 #include "servers/WEB_SERVER_FUNCS.h"
+#include "servers/WIFI_SERVER.h"
 #include "core/ota/HYBRID_OTA.h"
 
 // Function declarations
@@ -26,6 +27,8 @@ void initWebSocket();
 void handleWebSocket();
 void handelWebSocketData();
 void handleServer();
+void handleWifiAutoUpdate();
+bool connectToConfiguredWifi();
 
 #include "core/handlers/HANDLERS_FUNCS.h"
 #include "servers/WEB_SOCKET_FUNCS.h"
@@ -71,4 +74,5 @@ void setup()
 
 void loop() {
   handleMoto();
+  handleWifiAutoUpdate();
 }
