@@ -37,10 +37,21 @@ boolean loadConfig() {
   
   APSSID = preferences.getString("APSSID",APSSID);
   APPSK = preferences.getString("APPSK",APPSK);
+  WIFI_AUTO_UPDATE_ENABLED = preferences.getBool("WIFI_AUTO_UPDATE_ENABLED", WIFI_AUTO_UPDATE_ENABLED);
+  WIFI_UPDATE_SSID = preferences.getString("WIFI_UPDATE_SSID", WIFI_UPDATE_SSID);
+  WIFI_UPDATE_PASSWORD = preferences.getString("WIFI_UPDATE_PASSWORD", WIFI_UPDATE_PASSWORD);
+  WIFI_LAST_CHECK_TIME = preferences.getULong("WIFI_LAST_CHECK_TIME", WIFI_LAST_CHECK_TIME);
+  WIFI_LAST_ATTEMPT_TIME = preferences.getULong("WIFI_LAST_ATTEMPT_TIME", WIFI_LAST_ATTEMPT_TIME);
+  WIFI_UPDATE_STATUS = preferences.getString("WIFI_UPDATE_STATUS", WIFI_UPDATE_STATUS);
   
   UPDATE_MODE = preferences.getBool("UPDATE_MODE",UPDATE_MODE);
   UPDATE_CORE = preferences.getBool("UPDATE_CORE",UPDATE_CORE);
   INIT_SYSTEM = preferences.getBool("INIT_SYSTEM",INIT_SYSTEM);
+  
+  // OTA Configuration
+  OTA_MODE = preferences.getInt("OTA_MODE", OTA_MODE);
+  OTA_PASSWORD = preferences.getString("OTA_PASSWORD", OTA_PASSWORD);
+  OTA_JWT_TOKEN = preferences.getString("OTA_JWT_TOKEN", OTA_JWT_TOKEN);
 
   Serial.print("Init_angle");
   Serial.println(Init_angle);

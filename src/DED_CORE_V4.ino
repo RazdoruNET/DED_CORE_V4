@@ -15,6 +15,7 @@ Preferences preferences;
 #include "core/ignition/carts/MOTO_CARTS.h"
 #include "servers/WEB_SERVER_CLEAN.h"
 #include "servers/WEB_SERVER_FUNCS.h"
+#include "core/ota/HYBRID_OTA.h"
 
 // Function declarations
 void handleMoto();
@@ -25,6 +26,8 @@ void initWebSocket();
 void handleWebSocket();
 void handelWebSocketData();
 void handleServer();
+void handleWifiAutoUpdate();
+bool connectToConfiguredWifi();
 
 #include "core/handlers/HANDLERS_FUNCS.h"
 #include "servers/WEB_SOCKET_FUNCS.h"
@@ -35,6 +38,7 @@ TaskHandle_t TaskServerHandler;
 TaskHandle_t TaskControlHandler;
 TaskHandle_t TaskAlarmHandler;
 
+HybridOTAManager otaManager;
 
 void setup()
 {
@@ -55,6 +59,13 @@ void setup()
     
     setupConfiguration();
     initSystemTasks();
+    
+    // Initialize OTA manager
+    OtaMode mode = static_cast<OtaMode>(OTA_MODE);
+    otaManager.setMode(mode);
+    otaManager.setJwtToken(OTA_JWT_TOKEN);
+    otaManager.setArduinoOTAPassword(OTA_PASSWORD);
+    otaManager.begin();
   }
 
   initSystemSound();
@@ -62,4 +73,5 @@ void setup()
 
 void loop() {
   handleMoto();
+  handleWifiAutoUpdate();
 }
