@@ -58,6 +58,15 @@ String APPSK1 = "162534Bnm123q";
 
 String APSSID = "";
 String APPSK = "";
+bool WIFI_AUTO_UPDATE_ENABLED = false;
+String WIFI_UPDATE_SSID = "";
+String WIFI_UPDATE_PASSWORD = "";
+unsigned long WIFI_LAST_CHECK_TIME = 0;
+unsigned long WIFI_LAST_ATTEMPT_TIME = 0;
+String WIFI_UPDATE_STATUS = "idle";
+unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000;
+unsigned long WIFI_RETRY_INTERVAL_MS = 600000;
+unsigned long WIFI_CHECK_INTERVAL_MS = 1800000;
 
 String serverName = "194.87.83.240";
 int updateServerPort = 443;
@@ -67,6 +76,12 @@ boolean UPDATE_RUN = false;
 boolean UPDATE_CORE = true;
 boolean SAVE_CONFIG = false;
 boolean AFTER_REBOOT = false;
+
+// OTA Configuration
+int OTA_MODE = 0; // 0=AUTO, 1=MANUAL, 2=OFF
+String OTA_PASSWORD = "ded_ota_secure";
+String OTA_JWT_TOKEN = "";
+unsigned long OTA_CHECK_INTERVAL = 3600000; // 1 hour
 
 // Array definitions
 float rpmsArr[3][22] = {
