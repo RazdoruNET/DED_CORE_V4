@@ -77,8 +77,14 @@ bool OTAManager::checkForUpdate() {
         return lastFirmwareInfo.updateAvailable;
     }
     
+    // Получение MAC-адреса
+    String macAddress = WiFi.macAddress();
+    macAddress.replace(":", "");
+    macAddress.toLowerCase();
+    
     HTTPClient http;
-    String url = firmwareServerURL + "/check?current=" + currentVersion + "&device=ded_core_v4";
+    // Обновленный запрос
+    String url = firmwareServerURL + "/check?current=" + currentVersion + "&mac=" + macAddress + "&type=Kernel";
     
     Serial.print("Checking for update: ");
     Serial.println(url);
