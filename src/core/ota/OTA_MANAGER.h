@@ -23,6 +23,7 @@ private:
     String firmwareServerURL;
     String currentVersion;
     String jwtToken;
+    String deviceKey;
     unsigned long lastCheckTime;
     bool initialized;
     FirmwareInfo lastFirmwareInfo;
@@ -31,6 +32,7 @@ private:
     bool downloadAndInstall(const String& url);
     void onProgress(size_t progress, size_t total);
     bool parseFirmwareInfo(const String& json, FirmwareInfo& info);
+    void loadDeviceKey();
     
 public:
     OTAManager();
@@ -40,6 +42,8 @@ public:
     String getCurrentVersion();
     void setServerURL(const String& url);
     void setJwtToken(const String& token);
+    void setDeviceKey(const String& key);
+    String getDeviceKey();
     FirmwareInfo getLastFirmwareInfo();
     bool isInitialized();
 };

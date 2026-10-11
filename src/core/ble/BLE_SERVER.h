@@ -1,0 +1,124 @@
+#ifndef BLE_SERVER_H
+#define BLE_SERVER_H
+
+#include <Arduino.h>
+#include <Preferences.h>
+#include <NimBLEDevice.h>
+#include <ArduinoJson.h>
+#include "core/ota/HYBRID_OTA.h"
+#include "config/PROPS.h"
+
+extern Preferences preferences;
+extern HybridOTAManager otaManager;
+
+// Контракт BLE совпадает с PWA (frontend/src/app/ded-core-control/ded-core-control.service.ts).
+// Меняешь UUID здесь — поменяй и там, иначе сопряжение не найдёт устройство.
+// Стек — NimBLE: полный Bluedroid не влезает в отведённую под приложение флеш-партицию.
+#define DED_CORE_BLE_NAME      "DED CORE"
+#define DED_CORE_BLE_SERVICE   "6f1a0001-9a2b-4c3d-8e4f-000000000001"
+#define DED_CORE_BLE_TELEMETRY "6f1a0002-9a2b-4c3d-8e4f-000000000002"
+#define DED_CORE_BLE_COMMAND   "6f1a0003-9a2b-4c3d-8e4f-000000000003"
+#define DED_CORE_BLE_NOTIFY_MS 200
+
+static NimBLEServer* bleServer = nullptr;
+static NimBLECharacteristic* bleTelemetry = nullptr;
+static volatile bool bleConnected = false;
+static unsigned long bleLastNotify = 0;
+
+class DedCoreBleServerCallbacks : public NimBLEServerCallbacks {
+  void onConnect(NimBLEServer* server) override {
+    bleConnected = true;
+    Serial.println("BLE connected");
+  }
+
+  void onDisconnect(NimBLEServer* server) override {
+    bleConnected = false;
+    Serial.println("BLE disconnected");
+    // Клиент мог отойти и вернуться — снова начинаем вещать.
+    server->startAdvertising();
+  }
+};
+
+// Команды: провижининг ключа и выбор карты — те же события, что в WebSocket.
+class DedCoreBleCommandCallbacks : public NimBLECharacteristicCallbacks {
+  void onWrite(NimBLECharacteristic* characteristic) override {
+    std::string value = characteristic->getValue();
+    if (value.length() == 0) {
+      return;
+    }
+
+    StaticJsonBuffer<512> jsonBuffer;
+    JsonObject& root = jsonBuffer.parseObject(String(value.c_str()));
+    if (!root.success()) {
+      return;
+    }
+
+    if (root["event"] == "provision") {
+      const char* key = root["data"]["key"];
+      if (key != nullptr && strlen(key) > 0) {
+        otaManager.setDeviceKey(String(key));
+        Serial.println("BLE PROVISION ok");
+      }
+    } else if (root["event"] == "cart") {
+      int cart = root["data"]["cart"];
+      if (cart > 0 && cart <= 3) {
+        active_cart = cart - 1;
+        select_cart = cart;
+        preferences.putInt("active_cart", active_cart);
+        Serial.println("BLE cart set");
+      }
+    }
+  }
+};
+
+void initBleServer() {
+  NimBLEDevice::init(DED_CORE_BLE_NAME);
+
+  bleServer = NimBLEDevice::createServer();
+  bleServer->setCallbacks(new DedCoreBleServerCallbacks());
+
+  NimBLEService* service = bleServer->createService(DED_CORE_BLE_SERVICE);
+
+  bleTelemetry = service->createCharacteristic(DED_CORE_BLE_TELEMETRY, NIMBLE_PROPERTY::NOTIFY);
+
+  NimBLECharacteristic* command = service->createCharacteristic(
+      DED_CORE_BLE_COMMAND, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
+  command->setCallbacks(new DedCoreBleCommandCallbacks());
+
+  service->start();
+
+  NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
+  advertising->addServiceUUID(DED_CORE_BLE_SERVICE);
+  advertising->setScanResponse(true);
+  advertising->start();
+
+  Serial.println("BLE server started");
+}
+
+// Периодически шлём показания: тот же набор полей, что и в WS-сообщении прошивки.
+void handleBleTelemetry() {
+  if (!bleConnected || bleTelemetry == nullptr) {
+    return;
+  }
+
+  if (millis() - bleLastNotify < DED_CORE_BLE_NOTIFY_MS) {
+    return;
+  }
+  bleLastNotify = millis();
+
+  StaticJsonBuffer<256> jsonBuffer;
+  JsonObject& json = jsonBuffer.createObject();
+  json["micros"] = (uint32_t)micros();
+  json["select_cart"] = select_cart;
+  json["rpm"] = RPM;
+  json["termo"] = Termo;
+  json["throttle"] = Throttle;
+
+  String body;
+  json.printTo(body);
+
+  bleTelemetry->setValue((uint8_t*)body.c_str(), body.length());
+  bleTelemetry->notify();
+}
+
+#endif // BLE_SERVER_H

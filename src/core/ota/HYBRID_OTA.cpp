@@ -86,6 +86,10 @@ void HybridOTAManager::setServerURL(const String& url) {
     httpOta.setServerURL(url);
 }
 
+void HybridOTAManager::setDeviceKey(const String& key) {
+    httpOta.setDeviceKey(key);
+}
+
 void HybridOTAManager::setArduinoOTAPassword(const String& password) {
     arduinoOta.setPassword(password);
 }
