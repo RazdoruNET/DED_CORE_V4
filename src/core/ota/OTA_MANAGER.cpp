@@ -1,4 +1,7 @@
 #include "OTA_MANAGER.h"
+#include <Preferences.h>
+
+extern Preferences preferences;
 
 OTAManager::OTAManager() {
     firmwareServerURL = "http://" + serverName + ":8000/api/firmware";
@@ -11,11 +14,34 @@ OTAManager::OTAManager() {
 
 void OTAManager::begin() {
     initialized = true;
+    loadDeviceKey();
     Serial.println("OTAManager initialized");
     Serial.print("Firmware server URL: ");
     Serial.println(firmwareServerURL);
     Serial.print("Current version: ");
     Serial.println(currentVersion);
+}
+
+// Ключ устройства хранится в NVS (namespace "ded_box") и выдаётся мастером при
+// провижининге. Пусто — устройство обновляется по старой схеме (MAC + токен).
+void OTAManager::loadDeviceKey() {
+    deviceKey = preferences.getString("device_key", "");
+    if (deviceKey.length() > 0) {
+        Serial.print("Device key loaded, length: ");
+        Serial.println(deviceKey.length());
+    } else {
+        Serial.println("Device key not set: legacy update check by MAC");
+    }
+}
+
+void OTAManager::setDeviceKey(const String& key) {
+    deviceKey = key;
+    preferences.putString("device_key", key);
+    Serial.println("Device key saved to NVS");
+}
+
+String OTAManager::getDeviceKey() {
+    return deviceKey;
 }
 
 void OTAManager::setServerURL(const String& url) {
@@ -77,22 +103,29 @@ bool OTAManager::checkForUpdate() {
         return lastFirmwareInfo.updateAvailable;
     }
     
-    // Получение MAC-адреса
-    String macAddress = WiFi.macAddress();
-    macAddress.replace(":", "");
-    macAddress.toLowerCase();
-    
     HTTPClient http;
-    // Обновленный запрос
-    String url = firmwareServerURL + "/check?current=" + currentVersion + "&mac=" + macAddress + "&type=Kernel";
-    
+    String url;
+
+    if (deviceKey.length() > 0) {
+        // Купленное устройство: доступ по ключу (X-Device-Key), без сессии.
+        url = firmwareServerURL + "/device/check?current=" + currentVersion + "&type=Kernel";
+    } else {
+        // Legacy: проверка по MAC проекта под пользовательским токеном.
+        String macAddress = WiFi.macAddress();
+        macAddress.replace(":", "");
+        macAddress.toLowerCase();
+        url = firmwareServerURL + "/check?current=" + currentVersion + "&mac=" + macAddress + "&type=Kernel";
+    }
+
     Serial.print("Checking for update: ");
     Serial.println(url);
-    
+
     http.begin(url);
     http.setTimeout(OTA_TIMEOUT);
-    
-    if (jwtToken.length() > 0) {
+
+    if (deviceKey.length() > 0) {
+        http.addHeader("X-Device-Key", deviceKey);
+    } else if (jwtToken.length() > 0) {
         String authHeader = "Bearer " + jwtToken;
         http.addHeader("Authorization", authHeader);
     }
@@ -151,7 +184,9 @@ bool OTAManager::downloadAndInstall(const String& url) {
     http.begin(url);
     http.setTimeout(OTA_TIMEOUT);
     
-    if (jwtToken.length() > 0) {
+    if (deviceKey.length() > 0) {
+        http.addHeader("X-Device-Key", deviceKey);
+    } else if (jwtToken.length() > 0) {
         String authHeader = "Bearer " + jwtToken;
         http.addHeader("Authorization", authHeader);
     }

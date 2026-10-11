@@ -16,6 +16,8 @@ Preferences preferences;
 #include "servers/WEB_SERVER_CLEAN.h"
 #include "servers/WEB_SERVER_FUNCS.h"
 #include "core/ota/HYBRID_OTA.h"
+#include "core/provision/PROVISION.h"
+#include "core/ble/BLE_SERVER.h"
 
 // Function declarations
 void handleMoto();
@@ -66,6 +68,8 @@ void setup()
     otaManager.setJwtToken(OTA_JWT_TOKEN);
     otaManager.setArduinoOTAPassword(OTA_PASSWORD);
     otaManager.begin();
+
+    initBleServer();
   }
 
   initSystemSound();
@@ -74,4 +78,6 @@ void setup()
 void loop() {
   handleMoto();
   handleWifiAutoUpdate();
+  handleSerialProvision();
+  handleBleTelemetry();
 }

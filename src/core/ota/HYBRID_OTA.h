@@ -27,6 +27,7 @@ public:
     bool performUpdate();
     void setJwtToken(const String& token);
     void setServerURL(const String& url);
+    void setDeviceKey(const String& key);
     void setArduinoOTAPassword(const String& password);
     String getCurrentVersion();
     FirmwareInfo getLastFirmwareInfo();

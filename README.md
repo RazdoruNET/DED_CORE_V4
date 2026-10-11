@@ -179,3 +179,22 @@ pio run --target size
 ---
 
 **DED_CORE_V4** - профессиональное решение для тюнинга двигателей с открытым исходным кодом.
+
+## 🔐 Провижининг и управление (DED CORE CONTROL)
+
+Устройство, прошитое нашим сервисом, получает обновления по **ключу устройства** и
+управляется из приложения (раздел DED CORE CONTROL) по WiFi или Bluetooth.
+
+- **Ключ устройства.** Хранится в NVS (`ded_box` / `device_key`), передаётся серверу в
+  заголовке `X-Device-Key` при проверке (`/device/check`) и скачивании (`/device/download`)
+  обновления. Выдаётся при провижининге; мастера присылают его по проводу командой
+  `{"event":"provision","data":{"key":"…"}}`.
+- **WiFi.** Веб-сервер с WebSocket (`ws://192.168.4.1:81`) отдаёт телеметрию
+  `{"event":"message","data":{rpm,termo,throttle,select_cart,micros}}` и принимает команды
+  `ping`/`cart`. Это тот же канал, что использует вшитый веб-интерфейс.
+- **Bluetooth.** GATT-сервис на NimBLE (UUID — см. `src/core/ble/BLE_SERVER.h`): notify
+  телеметрии и write команд. Нужен там, где WiFi недоступен (например, HTTPS-приложение
+  не может открыть `ws://`).
+
+Файлы: `src/core/ota/OTA_MANAGER.*`, `src/core/provision/PROVISION.h`,
+`src/core/ble/BLE_SERVER.h`.
