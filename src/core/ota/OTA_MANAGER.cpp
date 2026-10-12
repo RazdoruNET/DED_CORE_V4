@@ -16,7 +16,10 @@ extern Preferences preferences;
 
 OTAManager::OTAManager() {
     firmwareServerURL = SERVICE_BASE_URL;
-    currentVersion = "0.0.1";
+    // Версия, которую блок сообщает сервису при проверке обновлений. Раньше здесь
+    // стояла строка "0.0.1" вместо константы сборки: сервис считал, что обновление
+    // доступно всегда, и блок переустанавливал один и тот же релиз по кругу.
+    currentVersion = FIRMWARE_VERSION;
     jwtToken = "";
     lastCheckTime = 0;
     initialized = false;

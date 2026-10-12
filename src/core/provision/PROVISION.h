@@ -2,7 +2,7 @@
 #define PROVISION_H
 
 #include <Arduino.h>
-#include <SPIFFS.h>
+#include "core/storage/DEVICE_FS.h"
 #include <ArduinoJson.h>
 #include "core/ota/HYBRID_OTA.h"
 #include "core/net/TLS_SERVER.h"
@@ -12,7 +12,8 @@ extern HybridOTAManager otaManager;
 // Провижининг по Serial. Мастер через WebSerial шлёт строку (без переносов):
 //   {"event":"provision","data":{"key":"<64 hex>"}}
 //   {"event":"tls","data":{"cert":"-----BEGIN CERTIFICATE-----\n...","key":"-----BEGIN PRIVATE KEY-----\n..."}}
-// Ключ сохраняется в NVS и используется для OTA по X-Device-Key, сертификат — в SPIFFS (/cert.pem, /key.pem).
+// Ключ сохраняется в NVS и используется для OTA по X-Device-Key, сертификат — в файловой
+// системе (/cert.pem, /key.pem).
 // Ответ печатается в тот же порт, чтобы мастер видел результат в логе.
 void handleSerialProvision() {
   if (!Serial.available()) {

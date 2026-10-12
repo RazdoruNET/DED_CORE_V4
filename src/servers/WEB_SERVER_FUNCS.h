@@ -23,16 +23,14 @@ void initRecoveryServerRoutes() {
 }
 
 void initServer() {
-  SPIFFS.begin(true);
   delay(500);
-  
-  if(!SPIFFS.begin()){
-    Serial.println("An Error has occurred while mounting SPIFFS");
+
+  if (!initFileSystem()) {
     return;
   }
-  
-  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
-  
+
+  server.serveStatic("/", DEVICE_FS, "/").setDefaultFile("index.html");
+
   initServerRoutes();
   initRecoveryServerRoutes();
   registerDeviceApiRoutes(&server);
@@ -44,16 +42,14 @@ void initServer() {
 }
 
 void initRecoveryServer() {
-  SPIFFS.begin(true);
   delay(500);
-  
-  if(!SPIFFS.begin()){
-    Serial.println("An Error has occurred while mounting SPIFFS");
+
+  if (!initFileSystem()) {
     return;
   }
-  
-  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
-  
+
+  server.serveStatic("/", DEVICE_FS, "/").setDefaultFile("index.html");
+
   initRecoveryServerRoutes();
   
   server.begin();

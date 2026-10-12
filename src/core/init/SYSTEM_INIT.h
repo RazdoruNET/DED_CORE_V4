@@ -2,7 +2,7 @@
 #define SYSTEM_INIT_H
 
 #include <Arduino.h>
-#include <SPIFFS.h>
+#include "core/storage/DEVICE_FS.h"
 #include "config/PROPS.h"
 #include "functions/SOUND.h"
 #include "core/ignition/Init.h"
@@ -20,10 +20,9 @@ void initSystemHardware() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
 
-  // SPIFFS монтируем до всего остального: там встроенный фронт, сертификат TLS и настройки.
-  if (!SPIFFS.begin(true)) {
-    Serial.println("SPIFFS mount failed");
-  }
+  // Файловую систему монтируем до всего остального: там встроенный фронт,
+  // сертификат TLS и настройки завода.
+  initFileSystem();
   
   pinMode(select_cart_down_pin, INPUT);   
   gpio_set_pull_mode(GPIO_NUM_33, GPIO_PULLUP_ONLY);

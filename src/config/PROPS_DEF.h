@@ -2,7 +2,6 @@
 // This file should be included only once in the main compilation unit
 
 boolean preferences_clear = false;
-boolean initSPIFFS = false;
 
 int select_cart_in_up_proces = 0;
 int select_cart_in_down_proces = 0;

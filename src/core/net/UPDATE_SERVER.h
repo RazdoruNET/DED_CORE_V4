@@ -26,7 +26,7 @@
 
 extern HybridOTAManager otaManager;
 
-// Страница обновления. Лежит в самой прошивке, а не в SPIFFS: путь к обновлению
+// Страница обновления. Лежит в самой прошивке, а не в файловой системе: путь к обновлению
 // должен работать и тогда, когда файловая система стёрта или не смонтирована.
 static const char DED_CORE_UPDATE_PAGE[] PROGMEM = R"HTML(<!doctype html>
 <html lang="ru"><head><meta charset="utf-8">
