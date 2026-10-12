@@ -14,6 +14,11 @@ struct FirmwareInfo {
     String url;
     uint32_t size;
     String md5;
+
+    // SHA-256 образа. Сервис отдаёт его вместе с md5; если его нет (старый сервис),
+    // проверяем по md5, но полагаться на md5 как на защиту нельзя.
+    String sha256;
+
     String changelog;
     bool updateAvailable;
 
@@ -22,6 +27,7 @@ struct FirmwareInfo {
     bool migrationRequired;
     String migrationUrl;
     String migrationMd5;
+    String migrationSha256;
     uint32_t migrationSize;
 };
 
@@ -36,9 +42,9 @@ private:
     bool updateInProgress = false;
     FirmwareInfo lastFirmwareInfo;
     
-    bool validateFirmware(uint32_t size, const String& md5);
+    bool validateFirmware(uint32_t size, const String& md5, const String& sha256);
     bool performUpdateInternal();
-    bool downloadAndInstall(const String& url);
+    bool downloadAndInstall(const String& url, const String& md5, const String& sha256);
     void onProgress(size_t progress, size_t total);
     bool parseFirmwareInfo(const String& json, FirmwareInfo& info);
     void loadDeviceKey();

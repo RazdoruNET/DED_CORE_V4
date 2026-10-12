@@ -453,6 +453,7 @@ server->on("/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
     response += "\"version\":\"" + info.version + "\",";
     response += "\"size\":\"" + String(info.size) + "\",";
     response += "\"md5\":\"" + info.md5 + "\",";
+    response += "\"sha256\":\"" + info.sha256 + "\",";
     response += "\"changelog\":\"" + info.changelog + "\"";
     response += "}";
     response += "},";
@@ -665,6 +666,7 @@ server->on("/ota/check", HTTP_GET, [] (AsyncWebServerRequest *request) {
       response += ",\"newVersion\":\"" + info.version + "\",";
       response += "\"size\":" + String(info.size) + ",";
       response += "\"md5\":\"" + info.md5 + "\",";
+      response += "\"sha256\":\"" + info.sha256 + "\",";
       response += "\"changelog\":\"" + info.changelog + "\"";
     }
     
@@ -687,6 +689,7 @@ server->on("/ota/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
     response += "\"version\":\"" + info.version + "\",";
     response += "\"size\":" + String(info.size) + ",";
     response += "\"md5\":\"" + info.md5 + "\",";
+    response += "\"sha256\":\"" + info.sha256 + "\",";
     response += "\"changelog\":\"" + info.changelog + "\"";
     response += "},";
     response += "\"wifiAutoUpdateEnabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? "true" : "false") + ",";
