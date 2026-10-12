@@ -176,7 +176,7 @@ void handleCartSelection() {
 | `TaskControlCode` | `ControlTask.h` | 1024 | 1 |
 | `TaskOtaCode` | `OtaTask.h` | 16384 | 1 |
 | `TaskAlarmCode` | `AlarmTask.h` | 2000 | 1 (только когда `SOUND`) |
-| `TaskMotoCode` | `MotoTask.h` — **не используется**: `handleMoto()` вызывается прямо из `loop()` | — | — |
+| `TaskMotoCode` | отдельной задачи нет: `handleMoto()` вызывается прямо из `loop()` (файл задачи удалён) | — | — |
 
 ```cpp
 // ServerTask.h — реальное содержимое
