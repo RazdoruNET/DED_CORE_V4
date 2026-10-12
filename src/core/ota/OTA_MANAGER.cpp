@@ -1,4 +1,5 @@
 #include "OTA_MANAGER.h"
+#include "core/net/IMAGE_HASH.h"
 #include <Preferences.h>
 #include <esp_ota_ops.h>
 #include "core/net/SERVICE_CLIENT.h"
@@ -85,6 +86,7 @@ bool OTAManager::parseFirmwareInfo(const String& json, FirmwareInfo& info) {
     info.migrationRequired = false;
     info.migrationUrl = "";
     info.migrationMd5 = "";
+    info.migrationSha256 = "";
     info.migrationSize = 0;
 
     JsonObject& migration = root["migration"];
@@ -93,6 +95,7 @@ bool OTAManager::parseFirmwareInfo(const String& json, FirmwareInfo& info) {
         info.migrationRequired = true;
         info.migrationUrl = migration["downloadUrl"].as<String>();
         info.migrationMd5 = migration["md5"].as<String>();
+        info.migrationSha256 = migration["sha256"].as<String>();
         info.migrationSize = migration["size"];
     }
     
@@ -101,6 +104,7 @@ bool OTAManager::parseFirmwareInfo(const String& json, FirmwareInfo& info) {
         info.url = root["downloadUrl"].as<String>();
         info.size = root["size"];
         info.md5 = root["md5"].as<String>();
+        info.sha256 = root["sha256"].as<String>();
         info.changelog = root["changelog"].as<String>();
         
         Serial.println("Update available:");
@@ -110,6 +114,8 @@ bool OTAManager::parseFirmwareInfo(const String& json, FirmwareInfo& info) {
         Serial.println(info.size);
         Serial.print("  MD5: ");
         Serial.println(info.md5);
+        Serial.print("  SHA-256: ");
+        Serial.println(info.sha256);
     } else {
         Serial.println("No update available");
     }
@@ -189,17 +195,18 @@ bool OTAManager::checkForUpdate() {
     return false;
 }
 
-bool OTAManager::validateFirmware(uint32_t size, const String& md5) {
+bool OTAManager::validateFirmware(uint32_t size, const String& md5, const String& sha256) {
     if (size == 0 || size > 3000000) { // Максимальный размер 3MB
         Serial.println("Invalid firmware size");
         return false;
     }
-    
-    if (md5.length() != 32) {
-        Serial.println("Invalid MD5 hash");
+
+    // Образ без контрольной суммы не принимаем: проверять целостность будет нечем.
+    if (sha256.length() != 64 && md5.length() != 32) {
+        Serial.println("No usable firmware hash in the response");
         return false;
     }
-    
+
     return true;
 }
 
@@ -212,7 +219,7 @@ void OTAManager::onProgress(size_t progress, size_t total) {
     }
 }
 
-bool OTAManager::downloadAndInstall(const String& url) {
+bool OTAManager::downloadAndInstall(const String& url, const String& md5, const String& sha256) {
     WiFiClientSecure secureClient;
 
     if (!serviceClientSetup(secureClient)) {
@@ -261,13 +268,32 @@ bool OTAManager::downloadAndInstall(const String& url) {
     }
     
     WiFiClient* stream = http.getStreamPtr();
-    size_t written = Update.writeStream(*stream);
+
+    // Суммы считаем по тем же байтам, что уходят во флеш: поток оборачиваем, а
+    // проверенный цикл записи из библиотеки обновления оставляем как есть.
+    ImageHasher hasher;
+    hasher.begin();
+    HashingStream hashingStream(*stream, hasher);
+
+    size_t written = Update.writeStream(hashingStream);
     
     if (written != contentLength) {
         Serial.print("Write failed. Written: ");
         Serial.print(written);
         Serial.print(" Expected: ");
         Serial.println(contentLength);
+        return false;
+    }
+
+    // Проверяем ДО Update.end(): до него образ ещё не считается принятым, и при
+    // подмене содержимого блок просто останется на прежней прошивке.
+    String hashError;
+
+    if (!hasher.matches(sha256, md5, hashError)) {
+        Serial.print("Firmware verification failed: ");
+        Serial.println(hashError);
+        Update.abort();
+        http.end();
         return false;
     }
     
@@ -323,7 +349,7 @@ bool OTAManager::performUpdateInternal() {
         return false;
     }
     
-    if (!validateFirmware(lastFirmwareInfo.size, lastFirmwareInfo.md5)) {
+    if (!validateFirmware(lastFirmwareInfo.size, lastFirmwareInfo.md5, lastFirmwareInfo.sha256)) {
         Serial.println("Firmware validation failed");
         return false;
     }
@@ -338,7 +364,7 @@ bool OTAManager::performUpdateInternal() {
         return false;
     }
 
-    bool success = downloadAndInstall(downloadUrl);
+    bool success = downloadAndInstall(downloadUrl, lastFirmwareInfo.md5, lastFirmwareInfo.sha256);
     
     if (success) {
         Serial.println("Update successful, rebooting...");

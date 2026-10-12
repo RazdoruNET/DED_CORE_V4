@@ -34,6 +34,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <MD5Builder.h>
+#include "core/net/IMAGE_HASH.h"
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
 #include <esp_flash.h>
@@ -162,7 +163,7 @@ bool looksLikeFirmware(const uint8_t *data, size_t len) {
 static size_t stageWritten = 0;
 static size_t stageTotal = 0;
 static bool stageActive = false;
-static MD5Builder stageMd5;
+static ImageHasher stageHasher;
 
 bool stageBegin(size_t totalSize, String &error) {
   if (totalSize < 64 * 1024 || totalSize > MIGRATION_MAX_FIRMWARE) {
@@ -195,7 +196,7 @@ bool stageBegin(size_t totalSize, String &error) {
   stageWritten = 0;
   stageTotal = totalSize;
   stageActive = true;
-  stageMd5.begin();
+  stageHasher.begin();
   return true;
 }
 
@@ -209,29 +210,22 @@ bool stageWrite(const uint8_t *data, size_t len) {
     return false;
   }
 
-  stageMd5.add((uint8_t *)data, len);
+  stageHasher.add(data, len);
   stageWritten += len;
   return true;
 }
 
-// Сверяет уложенное с тем, что читается из флеша, и с ожидаемой суммой от сервера.
-bool stageFinish(const String &expectedMd5, String &error) {
+// Сверяет уложенные байты с ожидаемой суммой от сервера и проверяет заголовок
+// образа во флеше. Сумма обязательна: образ, который нельзя проверить, во флеш
+// не переключаем.
+bool stageFinish(const String &expectedMd5, const String &expectedSha256, String &error) {
   if (!stageActive || stageWritten != stageTotal) {
     error = "образ уложен не полностью";
     stageActive = false;
     return false;
   }
 
-  stageMd5.calculate();
-
-  String actual = stageMd5.toString();
-  actual.toLowerCase();
-
-  String expected = expectedMd5;
-  expected.toLowerCase();
-
-  if (expected.length() == 32 && actual != expected) {
-    error = "контрольная сумма образа не совпала";
+  if (!stageHasher.matches(expectedSha256, expectedMd5, error)) {
     stageActive = false;
     return false;
   }

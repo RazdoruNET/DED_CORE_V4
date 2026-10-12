@@ -43,7 +43,8 @@ bool engineIsStopped() {
 
 // Скачиваем образ и укладываем его в будущий слот. Ничего не переключаем —
 // переключение делает отдельный шаг (writePartitionTable + перезагрузка).
-void migrationDownloadAndStage(const String &url, const String &expectedMd5, size_t expectedSize) {
+void migrationDownloadAndStage(const String &url, const String &expectedMd5,
+                              const String &expectedSha256, size_t expectedSize) {
   WiFiClientSecure client;
 
   if (!serviceClientSetup(client)) {
@@ -139,7 +140,7 @@ void migrationDownloadAndStage(const String &url, const String &expectedMd5, siz
   http.end();
 
   migrationStep = "Проверяем образ";
-  if (!stageFinish(expectedMd5, migrationError)) {
+  if (!stageFinish(expectedMd5, expectedSha256, migrationError)) {
     return;
   }
 
@@ -158,10 +159,11 @@ void migrationTask(void *parameter) {
   String *target = (String *)parameter;
   String url = target[0];
   String expectedMd5 = target[1];
-  size_t expectedSize = (size_t)target[2].toInt();
+  String expectedSha256 = target[2];
+  size_t expectedSize = (size_t)target[3].toInt();
   delete[] target;
 
-  migrationDownloadAndStage(url, expectedMd5, expectedSize);
+  migrationDownloadAndStage(url, expectedMd5, expectedSha256, expectedSize);
 
   // Сюда доходим только при ошибке: при успехе устройство уже перезагружается.
   Serial.print("Migration failed: ");
@@ -171,7 +173,7 @@ void migrationTask(void *parameter) {
   vTaskDelete(NULL);
 }
 
-bool startMigration(const String &url, const String &md5, size_t size, String &error) {
+bool startMigration(const String &url, const String &md5, const String &sha256, size_t size, String &error) {
   if (migrationRunning) {
     error = "переход уже выполняется";
     return false;
@@ -192,10 +194,11 @@ bool startMigration(const String &url, const String &md5, size_t size, String &e
   migrationStep = "Начинаем";
   migrationRunning = true;
 
-  String *argument = new String[3];
+  String *argument = new String[4];
   argument[0] = url;
   argument[1] = md5;
-  argument[2] = String((unsigned long)size);
+  argument[2] = sha256;
+  argument[3] = String((unsigned long)size);
 
   if (xTaskCreatePinnedToCore(migrationTask, "migration", 10240, argument, 1,
                               &migrationTaskHandle, 1) != pdPASS) {
@@ -244,7 +247,7 @@ void maybeStartMigrationFromService() {
   lastAttempt = millis();
 
   String error;
-  if (startMigration(info.migrationUrl, info.migrationMd5, info.migrationSize, error)) {
+  if (startMigration(info.migrationUrl, info.migrationMd5, info.migrationSha256, info.migrationSize, error)) {
     Serial.println("Migration: started on service request");
   } else {
     Serial.print("Migration: not started: ");
@@ -339,7 +342,7 @@ void registerMigrationRoutes(AsyncWebServer *server) {
 
       String error;
 
-      if (!startMigration(info.migrationUrl, info.migrationMd5, info.migrationSize, error)) {
+      if (!startMigration(info.migrationUrl, info.migrationMd5, info.migrationSha256, info.migrationSize, error)) {
         request->send(409, "text/plain", error);
         return;
       }
