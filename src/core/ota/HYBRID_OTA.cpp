@@ -90,8 +90,16 @@ void HybridOTAManager::setDeviceKey(const String& key) {
     httpOta.setDeviceKey(key);
 }
 
+String HybridOTAManager::getDeviceKey() {
+    return httpOta.getDeviceKey();
+}
+
 void HybridOTAManager::setArduinoOTAPassword(const String& password) {
     arduinoOta.setPassword(password);
+}
+
+bool HybridOTAManager::isUpdating() {
+    return httpOta.isUpdating();
 }
 
 String HybridOTAManager::getCurrentVersion() {

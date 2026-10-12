@@ -1,13 +1,24 @@
 #include <WiFi.h>
+#include <DNSServer.h>
 #include "config/PROPS.h"
 #include "core/ota/HYBRID_OTA.h"
 
 extern Preferences preferences;
 extern HybridOTAManager otaManager;
+extern DNSServer dnsServer;
 
 // Forward declarations
 bool connectToConfiguredWifi();
 void handleWifiAutoUpdate();
+
+// AP-DNS: в офлайне у телефона нет доступа к публичному DNS, поэтому имя устройства
+// (core.dedbox.pro) резолвим сами на адрес точки доступа — иначе https:// откроется
+// с предупреждением или не откроется вовсе.
+void initApDns()
+{
+  dnsServer.start(53, "*", WiFi.softAPIP());
+  Serial.println("AP-DNS started");
+}
 
 void initWifi() 
 {
@@ -15,6 +26,8 @@ void initWifi()
   WiFi.setAutoReconnect(true);
   WiFi.softAP(APSSID1, APPSK1);
   WIFI_UPDATE_STATUS = "ap_ready";
+
+  initApDns();
 
   if (WIFI_AUTO_UPDATE_ENABLED && WIFI_UPDATE_SSID.length() > 0) {
     connectToConfiguredWifi();

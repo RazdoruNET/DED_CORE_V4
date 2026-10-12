@@ -16,6 +16,13 @@ struct FirmwareInfo {
     String md5;
     String changelog;
     bool updateAvailable;
+
+    // Переход на новую разметку флеша: сервис сообщает, что устройству с заводской
+    // разметкой пора перейти на слоты 1536 КБ и где взять полный образ.
+    bool migrationRequired;
+    String migrationUrl;
+    String migrationMd5;
+    uint32_t migrationSize;
 };
 
 class OTAManager {
@@ -26,9 +33,11 @@ private:
     String deviceKey;
     unsigned long lastCheckTime;
     bool initialized;
+    bool updateInProgress = false;
     FirmwareInfo lastFirmwareInfo;
     
     bool validateFirmware(uint32_t size, const String& md5);
+    bool performUpdateInternal();
     bool downloadAndInstall(const String& url);
     void onProgress(size_t progress, size_t total);
     bool parseFirmwareInfo(const String& json, FirmwareInfo& info);
@@ -39,6 +48,9 @@ public:
     void begin();
     bool checkForUpdate();
     bool performUpdate();
+
+    // Идёт запись образа во флеш: переход на новую разметку в это время не начинаем.
+    bool isUpdating();
     String getCurrentVersion();
     void setServerURL(const String& url);
     void setJwtToken(const String& token);

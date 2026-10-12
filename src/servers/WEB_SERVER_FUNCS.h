@@ -2,6 +2,9 @@
 // This file should be included only once in the main compilation unit
 
 #include "WEB_SERVER_VARS.h"
+#include "core/net/UPDATE_SERVER.h"
+#include "core/migration/MIGRATION_SERVER.h"
+#include "core/net/TLS_HTTP_ROUTES.h"
 
 void initServerRoutes() {
   server.on("/", HTTP_GET, [] (AsyncWebServerRequest *request) {
@@ -31,7 +34,10 @@ void initServer() {
   
   initServerRoutes();
   initRecoveryServerRoutes();
-  
+  registerUpdateRoutes(&server);
+  registerMigrationRoutes(&server);
+  registerTlsHttpRoutes(&server);
+
   server.begin();
 }
 

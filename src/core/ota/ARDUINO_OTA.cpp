@@ -1,3 +1,8 @@
+// Реализация выключенного по умолчанию пути ArduinoOTA — см. ARDUINO_OTA.h.
+#ifdef DED_CORE_NO_ARDUINO_OTA
+// Ничего не определяем: при выключенном пути класс собран заглушками в заголовке.
+#else
+
 #include "ARDUINO_OTA.h"
 
 ArduinoOTAManager::ArduinoOTAManager() {
@@ -55,3 +60,5 @@ void ArduinoOTAManager::handle() {
 bool ArduinoOTAManager::isInitialized() {
     return initialized;
 }
+
+#endif // DED_CORE_NO_ARDUINO_OTA

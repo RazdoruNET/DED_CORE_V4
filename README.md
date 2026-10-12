@@ -190,11 +190,20 @@ pio run --target size
   обновления. Выдаётся при провижининге; мастера присылают его по проводу командой
   `{"event":"provision","data":{"key":"…"}}`.
 - **WiFi.** Веб-сервер с WebSocket (`ws://192.168.4.1:81`) отдаёт телеметрию
-  `{"event":"message","data":{rpm,termo,throttle,select_cart,micros}}` и принимает команды
-  `ping`/`cart`. Это тот же канал, что использует вшитый веб-интерфейс.
+  `{"event":"message","data":{...}}` и принимает команды `ping`/`cart`. Это тот же канал,
+  что использует вшитый веб-интерфейс.
+- **HTTPS/WSS.** Порт 443 отдаёт `https://core.dedbox.pro/` (вшитый фронт) и
+  `wss://core.dedbox.pro/ws` — нужен, чтобы HTTPS-приложение могло связаться с блоком
+  (браузер запрещает `ws://` из HTTPS). Имя резолвит AP-DNS самого блока. Сертификат
+  кладётся в SPIFFS (`/cert.pem`, `/key.pem`) по проводу или по `POST /api/tls`
+  с заголовком `X-Device-Key`.
 - **Bluetooth.** GATT-сервис на NimBLE (UUID — см. `src/core/ble/BLE_SERVER.h`): notify
-  телеметрии и write команд. Нужен там, где WiFi недоступен (например, HTTPS-приложение
-  не может открыть `ws://`).
+  телеметрии и write команд. Не зависит ни от DNS, ни от сертификата.
 
 Файлы: `src/core/ota/OTA_MANAGER.*`, `src/core/provision/PROVISION.h`,
-`src/core/ble/BLE_SERVER.h`.
+`src/core/ble/BLE_SERVER.h`, `src/core/net/TLS_SERVER.{h,cpp}`, `partitions_ded_core.csv`.
+
+> Флеш-разметка расширена (`partitions_ded_core.csv`): дефолтной партиции под приложение
+> больше не хватает. Устройства прошиваются по проводу (`pio run -t upload`), фронт —
+> `pio run -t uploadfs`. Подробности и выпуск сертификата — в
+> `docs/ded-core-tls.md` основного репозитория.

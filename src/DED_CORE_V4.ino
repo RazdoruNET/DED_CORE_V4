@@ -2,8 +2,6 @@
 
 Preferences preferences;
 
-#define FIRMWARE_VERSION "0.0.1"
-
 #include "core/init/SYSTEM_INIT.h"
 #include "core/preferences/PREFERENCES_MANAGER.h"
 #include "core/recovery/RECOVERY_MODE.h"
@@ -16,8 +14,18 @@ Preferences preferences;
 #include "servers/WEB_SERVER_CLEAN.h"
 #include "servers/WEB_SERVER_FUNCS.h"
 #include "core/ota/HYBRID_OTA.h"
+#include "core/migration/LEGACY_CONFIG_IMPORT.h"
+#include "core/migration/PARTITION_MIGRATION.h"
+#include "core/net/TLS_SERVER.h"
+#include "core/net/PAIRING.h"
 #include "core/provision/PROVISION.h"
+
+// Bluetooth собирается не во всех вариантах: полный BLE-стек (контроллер + NimBLE)
+// не влезает в 1280 КБ — старую разметку флеша, с которой приходят устройства,
+// выпущенные до DED CORE V4. См. platformio-legacy.ini и docs/ded-core-migration.md.
+#ifndef DED_CORE_NO_BLE
 #include "core/ble/BLE_SERVER.h"
+#endif
 
 // Function declarations
 void handleMoto();
@@ -36,9 +44,17 @@ bool connectToConfiguredWifi();
 #include "core/handlers/HANDLERS.h"
 #include "core/tasks/TASKS.h"
 
+// Тела задач подключаем здесь: они используют обработчики и сетевой слой,
+// поэтому должны идти после их определений.
+#include "core/tasks/ControlTask.h"
+#include "core/tasks/AlarmTask.h"
+#include "core/tasks/ServerTask.h"
+#include "core/tasks/OtaTask.h"
+
 TaskHandle_t TaskServerHandler;
 TaskHandle_t TaskControlHandler;
 TaskHandle_t TaskAlarmHandler;
+TaskHandle_t TaskOtaHandler;
 
 HybridOTAManager otaManager;
 
@@ -58,7 +74,20 @@ void setup()
     if (!initializeMainPreferences()) {
       return;
     }
-    
+
+    // Устройства с заводской прошивки держат настройки в SPIFFS — переносим их в NVS,
+    // иначе владелец после обновления увидит заводские карты вместо своей настройки.
+    importLegacyConfigIfNeeded();
+
+    // Владелец читает эти две строки с провода, чтобы привязать блок к учётной записи.
+    printPairCodeToSerial();
+
+    // Если разметку уже переписали и устройство перезагрузилось — доводим переход до конца
+    // (переключаем загрузку на новый слот). Успех завершается перезагрузкой.
+    if (handleMigrationBootStep()) {
+      return;
+    }
+
     setupConfiguration();
     initSystemTasks();
     
@@ -69,7 +98,9 @@ void setup()
     otaManager.setArduinoOTAPassword(OTA_PASSWORD);
     otaManager.begin();
 
+#ifndef DED_CORE_NO_BLE
     initBleServer();
+#endif
   }
 
   initSystemSound();
@@ -77,7 +108,8 @@ void setup()
 
 void loop() {
   handleMoto();
-  handleWifiAutoUpdate();
   handleSerialProvision();
+#ifndef DED_CORE_NO_BLE
   handleBleTelemetry();
+#endif
 }

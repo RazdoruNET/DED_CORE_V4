@@ -96,6 +96,6 @@ float anglesArr[3][22] = {
   { 21, 23, 24, 26, 29, 29, 31, 33, 35, 37, 39, 40, 41, 42, 43, 43, 42, 41, 40, 39, 28, 28 }
 };
 
-int angles_adjustmentArr[22][3];
-int quick_adjustmentArr[22][3];
-int servo_valueArr[22][3];
+int angles_adjustmentArr[3][22];
+int quick_adjustmentArr[3][22];
+int servo_valueArr[3][22];
