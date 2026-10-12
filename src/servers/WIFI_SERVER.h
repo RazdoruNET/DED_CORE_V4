@@ -1,3 +1,6 @@
+#ifndef WIFI_SERVER_H
+#define WIFI_SERVER_H
+
 #include <WiFi.h>
 #include <DNSServer.h>
 #include "config/PROPS.h"
@@ -52,35 +55,41 @@ bool connectToConfiguredWifi() {
   preferences.putULong("WIFI_LAST_ATTEMPT_TIME", WIFI_LAST_ATTEMPT_TIME);
   WIFI_UPDATE_STATUS = "connecting";
 
-  Serial.println("Scanning for configured WiFi network...");
-  int networkCount = WiFi.scanNetworks(true);
+  Serial.print("Connecting to configured WiFi: ");
+  Serial.println(WIFI_UPDATE_SSID);
 
-  if (networkCount <= 0) {
-    WIFI_UPDATE_STATUS = "network_not_found";
-    return false;
-  }
+  // Подключаемся напрямую, без предварительного сканирования: асинхронный
+  // WiFi.scanNetworks(true) возвращает признак «идёт скан» и список оставался пустым,
+  // поэтому автообновление никогда не находило сеть. Статус подключения esp-idf
+  // сообщает сам: нет сети — WL_NO_SSID_AVAIL, не подошёл пароль — WL_CONNECT_FAILED.
+  WiFi.begin(WIFI_UPDATE_SSID.c_str(), WIFI_UPDATE_PASSWORD.c_str());
 
-  for (int i = 0; i < networkCount; i++) {
-    String foundSSID = WiFi.SSID(i);
-    if (foundSSID == WIFI_UPDATE_SSID) {
-      WiFi.begin(WIFI_UPDATE_SSID.c_str(), WIFI_UPDATE_PASSWORD.c_str());
+  unsigned long startTime = millis();
+  while (millis() - startTime < WIFI_CONNECT_TIMEOUT_MS) {
+    wl_status_t wifiStatus = WiFi.status();
 
-      unsigned long startTime = millis();
-      while (millis() - startTime < WIFI_CONNECT_TIMEOUT_MS) {
-        if (WiFi.status() == WL_CONNECTED) {
-          WIFI_UPDATE_STATUS = "connected";
-          Serial.println("Connected to configured WiFi network");
-          return true;
-        }
-        delay(100);
-      }
+    if (wifiStatus == WL_CONNECTED) {
+      WIFI_UPDATE_STATUS = "connected";
+      Serial.println("Connected to configured WiFi network");
+      return true;
+    }
 
-      WIFI_UPDATE_STATUS = "connect_failed";
+    if (wifiStatus == WL_NO_SSID_AVAIL) {
+      WIFI_UPDATE_STATUS = "network_not_found";
+      Serial.println("Configured WiFi network not found");
       return false;
     }
+
+    if (wifiStatus == WL_CONNECT_FAILED) {
+      WIFI_UPDATE_STATUS = "connect_failed";
+      Serial.println("Configured WiFi rejected the password");
+      return false;
+    }
+
+    delay(100);
   }
 
-  WIFI_UPDATE_STATUS = "network_not_found";
+  WIFI_UPDATE_STATUS = "connect_failed";
   return false;
 }
 
@@ -131,3 +140,5 @@ void initRecoveryWifi()
   // Serial.print("Recovery Soft-AP IP address = ");         
   // Serial.println(WiFi.softAPIP());
 }
+
+#endif // WIFI_SERVER_H

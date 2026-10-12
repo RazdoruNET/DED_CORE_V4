@@ -1,6 +1,9 @@
 #ifndef OTATASK_H
 #define OTATASK_H
 
+#include "core/net/DEVICE_COMMANDS.h"
+#include "servers/WIFI_SERVER.h"
+
 // Проверка обновлений и получение сертификата от сервиса.
 //
 // Вынесено в отдельную задачу, а не в loop(), по двум причинам:
@@ -16,10 +19,17 @@ void TaskOtaCode(void * parameter) {
 
   for (;;) {
     if (!migrationInProgress()) {
-      handleWifiAutoUpdate();
+      if (WIFI_SCAN_REQUESTED) {
+        // Сканирование занимает секунды, поэтому идёт здесь, а не в обработчике команды.
+        WIFI_SCAN_REQUESTED = false;
+        sendDeviceFrame(buildWifiNetworksJson());
+      } else {
+        handleWifiAutoUpdate();
+      }
     }
 
-    vTaskDelay(5000);
+    // Пока владелец ждёт ответа на команду, опрашиваем чаще.
+    vTaskDelay(WIFI_SCAN_REQUESTED ? 250 : 5000);
   }
 }
 

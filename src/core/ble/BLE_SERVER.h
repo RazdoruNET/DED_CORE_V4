@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include "core/ota/HYBRID_OTA.h"
 #include "core/net/PAIRING.h"
+#include "core/net/DEVICE_COMMANDS.h"
 #include "config/PROPS.h"
 
 extern Preferences preferences;
@@ -20,11 +21,15 @@ extern HybridOTAManager otaManager;
 #define DED_CORE_BLE_TELEMETRY "6f1a0002-9a2b-4c3d-8e4f-000000000002"
 #define DED_CORE_BLE_COMMAND   "6f1a0003-9a2b-4c3d-8e4f-000000000003"
 #define DED_CORE_BLE_NOTIFY_MS 200
+// Состояние подключения к домашней сети меняется редко — отдельным кадром раз в две секунды,
+// чтобы кадр телеметрии оставался коротким и укладывался в одну нотификацию.
+#define DED_CORE_BLE_WIFI_MS 2000
 
 static NimBLEServer* bleServer = nullptr;
 static NimBLECharacteristic* bleTelemetry = nullptr;
 static volatile bool bleConnected = false;
 static unsigned long bleLastNotify = 0;
+static unsigned long bleLastWifiNotify = 0;
 
 class DedCoreBleServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* server) override {
@@ -86,6 +91,13 @@ class DedCoreBleCommandCallbacks : public NimBLECharacteristicCallbacks {
       bleTelemetry->setValue((uint8_t*)body.c_str(), body.length());
       bleTelemetry->notify();
       Serial.println("BLE pair info sent");
+    } else {
+      // WiFi, карты, ping — общий разбор: тот же JSON приходит и по WebSocket.
+      String reply = "";
+      if (handleDeviceCommand(String(value.c_str()), reply)) {
+        bleTelemetry->setValue((uint8_t*)reply.c_str(), reply.length());
+        bleTelemetry->notify();
+      }
     }
   }
 };
@@ -138,6 +150,15 @@ void handleBleTelemetry() {
 
   bleTelemetry->setValue((uint8_t*)body.c_str(), body.length());
   bleTelemetry->notify();
+
+  // Домашняя сеть и обновления: отдельный кадр, чтобы основной оставался коротким.
+  if (millis() - bleLastWifiNotify >= DED_CORE_BLE_WIFI_MS) {
+    bleLastWifiNotify = millis();
+
+    String wifiBody = "{\"event\":\"wifi_status\",\"data\":" + wifiStateJson() + "}";
+    bleTelemetry->setValue((uint8_t*)wifiBody.c_str(), wifiBody.length());
+    bleTelemetry->notify();
+  }
 }
 
 #endif // BLE_SERVER_H

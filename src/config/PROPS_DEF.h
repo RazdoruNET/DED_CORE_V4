@@ -66,6 +66,7 @@ String WIFI_UPDATE_STATUS = "idle";
 unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000;
 unsigned long WIFI_RETRY_INTERVAL_MS = 600000;
 unsigned long WIFI_CHECK_INTERVAL_MS = 1800000;
+bool WIFI_SCAN_REQUESTED = false;
 
 String serverName = "194.87.83.240";
 int updateServerPort = 443;
