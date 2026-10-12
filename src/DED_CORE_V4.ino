@@ -106,6 +106,26 @@ void setup()
   initSystemSound();
 }
 
+// Кадр владельцу по всем открытым каналам: WS на 81 (вшитый фронт и PWA по HTTP),
+// wss на 443 (PWA по HTTPS) и Bluetooth. Команда приходит по одному каналу, а её ответ
+// нужен всем: владелец может держать открытым и приложение, и страницу блока.
+void sendDeviceFrame(const String &frame) {
+  String copy = frame;
+
+  for (int i = 0; i <= 100; i++) {
+    webSocket.sendTXT(i, copy);
+  }
+
+  tlsBroadcastFrame(frame);
+
+#ifndef DED_CORE_NO_BLE
+  if (bleConnected && bleTelemetry != nullptr) {
+    bleTelemetry->setValue((uint8_t*)frame.c_str(), frame.length());
+    bleTelemetry->notify();
+  }
+#endif
+}
+
 void loop() {
   handleMoto();
   handleSerialProvision();

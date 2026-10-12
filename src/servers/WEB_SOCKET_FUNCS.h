@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include "config/PROPS.h"
 #include "core/ota/HYBRID_OTA.h"
+#include "core/net/DEVICE_COMMANDS.h"
 
 // Use external variables from WEB_SOCKET_VARS.h
 extern WebSocketsServer webSocket;
@@ -29,43 +30,9 @@ void initWebSocket() {
 
 // Обработка команды клиента (WS на 81 и HTTPS/WSS используют её совместно).
 // Возвращает true, если нужен ответ (например, pong) — он кладётся в out.
+// Команды разбирает общий обработчик: тот же JSON приходит по Bluetooth и по wss на 443.
 bool handleClientCommand(const String &dataStr, String &out) {
-  StaticJsonBuffer<5000> jsonBufferWS;
-  JsonObject& jsonWS = jsonBufferWS.parseObject(dataStr);
-
-  if (!jsonWS.success()) {
-    Serial.println(dataStr);
-    return false;
-  }
-
-  if (jsonWS["event"] == "cart") {
-    int resp_active_cart = (int) jsonWS["data"]["cart"];
-
-    if (resp_active_cart > 0 && resp_active_cart <= 3) {
-      active_cart = (resp_active_cart - 1);
-      preferences.putInt("active_cart", active_cart);
-
-      Serial.print("active_cart ");
-      Serial.println(active_cart);
-    }
-  }
-
-  if (jsonWS["event"] == "servo_error") {
-    Servo_error = 1;
-  }
-
-  if (jsonWS["event"] == "ping") {
-    String body = "";
-
-    JsonObject& json = jsonBufferWS.createObject();
-    json["event"] = "pong";
-    json.printTo(body);
-
-    out = body;
-    return true;
-  }
-
-  return false;
+  return handleDeviceCommand(dataStr, out);
 }
 
 void onEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
@@ -140,6 +107,8 @@ String getDataJson() {
   data["wifi_last_check_time"] = WIFI_LAST_CHECK_TIME;
   data["wifi_last_attempt_time"] = WIFI_LAST_ATTEMPT_TIME;
   data["wifi_connected"] = (WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID) ? 1 : 0;
+  data["wifi_password_set"] = (WIFI_UPDATE_PASSWORD.length() > 0) ? 1 : 0;
+  data["firmware_version"] = FIRMWARE_VERSION;
   data["ota_update_available"] = otaManager.getLastFirmwareInfo().updateAvailable ? 1 : 0;
   data["ota_last_version"] = otaManager.getLastFirmwareInfo().version;
   data["motor_running"] = (RPM > 0) ? 1 : 0;

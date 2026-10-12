@@ -12,7 +12,7 @@ uint8_t temprature_sens_read();
 
 // Версия прошивки (используется в веб-API и OTA).
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "4.0.1"
+#define FIRMWARE_VERSION "4.0.2"
 #endif
 
 // Pin declarations - definitions in PINS_DEF.h
@@ -88,6 +88,9 @@ extern String WIFI_UPDATE_STATUS;
 extern unsigned long WIFI_CONNECT_TIMEOUT_MS;
 extern unsigned long WIFI_RETRY_INTERVAL_MS;
 extern unsigned long WIFI_CHECK_INTERVAL_MS;
+// Приложение попросило список сетей вокруг: сканирование выполняет задача OTA,
+// а не обработчик Bluetooth (там оно заблокировало бы стек).
+extern bool WIFI_SCAN_REQUESTED;
 
 // Array declarations
 extern float rpmsArr[3][22];

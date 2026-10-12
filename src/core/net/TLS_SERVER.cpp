@@ -456,13 +456,7 @@ void tlsHandleCertificateMaintenance() {
   }
 }
 
-void tlsBroadcastWork(void *arg) {
-  if (tlsServer == nullptr) {
-    return;
-  }
-
-  String json = getDataJson();
-
+void tlsSendFrameToClients(const String &json) {
   httpd_ws_frame_t frame = {};
   frame.type = HTTPD_WS_TYPE_TEXT;
   frame.payload = (uint8_t *)json.c_str();
@@ -481,6 +475,40 @@ void tlsBroadcastWork(void *arg) {
 
     httpd_ws_send_frame_async(tlsServer, fd, &frame);
   }
+}
+
+// Кадр приходит из другой задачи, а httpd рассылает только из своей: кадр кладём в кучу
+// и передаём владельцем задания — иначе строку мог бы перезаписать следующий вызов.
+static void tlsBroadcastFrameWork(void *arg) {
+  String *payload = static_cast<String *>(arg);
+  if (payload == nullptr) {
+    return;
+  }
+
+  if (tlsServer != nullptr) {
+    tlsSendFrameToClients(*payload);
+  }
+
+  delete payload;
+}
+
+void tlsBroadcastFrame(const String &json) {
+  if (tlsServer == nullptr) {
+    return;
+  }
+
+  String *payload = new String(json);
+  if (httpd_queue_work(tlsServer, tlsBroadcastFrameWork, payload) != ESP_OK) {
+    delete payload;
+  }
+}
+
+void tlsBroadcastWork(void *arg) {
+  if (tlsServer == nullptr) {
+    return;
+  }
+
+  tlsSendFrameToClients(getDataJson());
 }
 
 bool tlsReadFile(const char *path, String &out) {
