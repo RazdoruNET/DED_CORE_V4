@@ -148,13 +148,19 @@ void initServerRoutes() {
 
 ### Система задач RTOS
 
-#### Задача управления зажиганием (MotoTask.h)
+#### Обработка зажигания (без отдельной задачи)
+
+Задачи `TaskMotoCode`/`MotoTask.h` больше нет: `handleMoto()` вызывается прямо из
+`loop()` главного потока, поэтому искра считается без переключений контекста.
+
 ```cpp
-void TaskMotoCode(void *pvParameters) {
-  while(1) {
-    handleMoto();
-    vTaskDelay(1); // Высокоприоритетная задача
-  }
+// src/DED_CORE_V4.ino
+void loop() {
+  handleMoto();
+  handleSerialProvision();
+#ifndef DED_CORE_NO_BLE
+  handleBleTelemetry();
+#endif
 }
 ```
 
