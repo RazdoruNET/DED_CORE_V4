@@ -11,7 +11,6 @@ boolean loadConfig() {
   String angles_adjustment_chars = "aa";
   String quick_adjustment_chars = "qa";
 
-  initSPIFFS = preferences.getBool("initSPIFFS", initSPIFFS);
 
   active_cart = preferences.getInt("active_cart", active_cart);
 

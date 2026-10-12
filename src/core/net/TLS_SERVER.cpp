@@ -4,7 +4,8 @@
 // Значит блок должен отдавать wss://, а для этого нужен сертификат, которому доверяет браузер.
 //
 // Сертификат выпускаем МЫ (Let's Encrypt DNS-01 на core.dedbox.pro) и кладём на устройство
-// файлами /cert.pem и /key.pem в SPIFFS. В офлайне DNS/интернет не нужны: имя резолвит AP-DNS
+// файлами /cert.pem и /key.pem в файловой системе. В офлайне DNS/интернет не нужны:
+// имя резолвит AP-DNS
 // устройства (initApDns в servers/WIFI_SERVER.h), доверие проверяет браузер телефона.
 //
 // Плейн-HTTP (80) и WS (81) остаются fallback-ом для уже выпущенных фронтов.
@@ -14,7 +15,7 @@
 
 #include <Arduino.h>
 #include <Preferences.h>
-#include <SPIFFS.h>
+#include "core/storage/DEVICE_FS.h"
 #include <ArduinoJson.h>
 #include "esp_https_server.h"
 #include "esp_http_server.h"
@@ -157,7 +158,7 @@ esp_err_t tlsStaticHandler(httpd_req_t *req) {
     return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad path");
   }
 
-  File file = SPIFFS.open(path, "r");
+  File file = DEVICE_FS.open(path, "r");
   if (!file || file.isDirectory()) {
     return httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Not found");
   }
@@ -205,9 +206,9 @@ bool tlsRequestAuthorized(httpd_req_t *req) {
 // понимает, что сертификат пора менять, и успевает это сделать до истечения.
 // Заголовок X-Device-Key обязателен: иначе сертификат мог бы подменить любой из той же Wi-Fi сети.
 bool applyTlsMaterial(const String &body, String &error) {
-  // Serial-провижининг может сработать раньше, чем задача сервера смонтирует SPIFFS.
-  if (!SPIFFS.begin(true)) {
-    error = "SPIFFS not available";
+  // Serial-провижининг может сработать раньше, чем задача сервера смонтирует ФС.
+  if (!DEVICE_FS.begin(true)) {
+    error = "filesystem is not available";
     return false;
   }
 
@@ -243,7 +244,7 @@ bool applyTlsMaterial(const String &body, String &error) {
     return false;
   }
 
-  File certFile = SPIFFS.open(DED_CORE_TLS_CERT_FILE, "w");
+  File certFile = DEVICE_FS.open(DED_CORE_TLS_CERT_FILE, "w");
   if (!certFile) {
     error = "cannot write cert.pem";
     return false;
@@ -251,7 +252,7 @@ bool applyTlsMaterial(const String &body, String &error) {
   certFile.print(cert);
   certFile.close();
 
-  File keyFile = SPIFFS.open(DED_CORE_TLS_KEY_FILE, "w");
+  File keyFile = DEVICE_FS.open(DED_CORE_TLS_KEY_FILE, "w");
   if (!keyFile) {
     error = "cannot write key.pem";
     return false;
@@ -430,7 +431,7 @@ void tlsHandleCertificateMaintenance() {
   }
 
   int daysLeft = tlsCertificateDaysLeft();
-  bool needRefresh = !tlsIsRunning() || !SPIFFS.exists(DED_CORE_TLS_CERT_FILE) ||
+  bool needRefresh = !tlsIsRunning() || !DEVICE_FS.exists(DED_CORE_TLS_CERT_FILE) ||
                      (daysLeft >= 0 && daysLeft < DED_CORE_TLS_RENEW_DAYS);
 
   if (!needRefresh) {
@@ -483,7 +484,7 @@ void tlsBroadcastWork(void *arg) {
 }
 
 bool tlsReadFile(const char *path, String &out) {
-  File file = SPIFFS.open(path, "r");
+  File file = DEVICE_FS.open(path, "r");
   if (!file) {
     return false;
   }
@@ -510,13 +511,13 @@ void stopTlsServer() {
 bool startTlsServer() {
   stopTlsServer();
 
-  if (!SPIFFS.begin(true)) {
-    Serial.println("TLS: SPIFFS not available");
+  if (!DEVICE_FS.begin(true)) {
+    Serial.println("TLS: filesystem is not available");
     return false;
   }
 
   if (!tlsReadFile(DED_CORE_TLS_CERT_FILE, tlsCertPem) || !tlsReadFile(DED_CORE_TLS_KEY_FILE, tlsKeyPem)) {
-    Serial.println("TLS: cert.pem/key.pem not found in SPIFFS — HTTPS disabled");
+    Serial.println("TLS: cert.pem/key.pem not found — HTTPS disabled");
     return false;
   }
 

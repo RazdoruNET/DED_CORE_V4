@@ -5,7 +5,7 @@
 #include <Preferences.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
-#include <SPIFFS.h>
+#include "core/storage/DEVICE_FS.h"
 #include <ESPAsyncWebServer.h>
 #include <DNSServer.h>
 #include "config/PROPS.h"

@@ -12,6 +12,10 @@
 // умножаем на 100 так же, как это делает loadConfig() при чтении.
 //
 // Запускается один раз: после переноса в NVS ставится отметка legacy_imported.
+//
+// Важно: SPIFFS здесь остаётся SPIFFS при любой сборке — заводская прошивка хранит
+// настройки именно в ней. В сборке для новой разметки функция ничего не делает
+// (см. внутри): там этот раздел занят файловой системой блока.
 
 #include <Arduino.h>
 #include <SPIFFS.h>
@@ -113,6 +117,13 @@ bool importLegacyConfigIfNeeded() {
     return true;
   }
 
+#ifndef DED_CORE_LEGACY_LAYOUT
+  // В новой разметке заводских настроек в SPIFFS уже нет: их переносит сборка перехода,
+  // пока работает с заводской таблицей разделов. Монтировать здесь SPIFFS нельзя —
+  // на этом разделе лежит LittleFS с вшитым интерфейсом, и SPIFFS.begin(true)
+  // отформатировала бы её вместе с сертификатом.
+  return true;
+#else
   if (!SPIFFS.begin(true)) {
     Serial.println("Legacy config: SPIFFS unavailable");
     return false;
@@ -159,6 +170,7 @@ bool importLegacyConfigIfNeeded() {
   preferences.putBool(LEGACY_CONFIG_MARKER, true);
   Serial.println("Legacy config: import done");
   return true;
+#endif
 }
 
 #endif // LEGACY_CONFIG_IMPORT_H

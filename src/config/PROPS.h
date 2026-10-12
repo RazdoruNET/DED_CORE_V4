@@ -12,7 +12,7 @@ uint8_t temprature_sens_read();
 
 // Версия прошивки (используется в веб-API и OTA).
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "4.0.0"
+#define FIRMWARE_VERSION "4.0.1"
 #endif
 
 // Pin declarations - definitions in PINS_DEF.h
@@ -25,7 +25,6 @@ extern const int throttle_pin;
 
 // Declare as extern to prevent multiple definitions
 extern boolean preferences_clear;
-extern boolean initSPIFFS;
 
 extern int select_cart_in_up_proces;
 extern int select_cart_in_down_proces;

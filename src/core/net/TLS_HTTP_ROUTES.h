@@ -55,7 +55,7 @@ void tlsSendStatusJson(AsyncWebServerRequest *request) {
   json["host"] = DED_CORE_TLS_HOST;
   json["firmware"] = FIRMWARE_VERSION;
   json["tls"] = tlsIsRunning();
-  json["cert"] = SPIFFS.exists("/cert.pem");
+  json["cert"] = DEVICE_FS.exists("/cert.pem");
   json["certExpiry"] = tlsCertificateExpiry();
   json["certDaysLeft"] = tlsCertificateDaysLeft();
   json["wifiConnected"] = (WiFi.status() == WL_CONNECTED);

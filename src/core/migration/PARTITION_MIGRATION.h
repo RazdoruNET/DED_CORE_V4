@@ -57,6 +57,9 @@ extern Preferences preferences;
 #define NEW_APP0_SIZE    0x170000
 #define NEW_APP1_OFFSET  0x180000
 #define NEW_APP1_SIZE    0x170000
+// Раздел файловой системы. Метка остаётся "spiffs" не по ошибке: Arduino-ядро 2.x
+// монтирует раздел именно по этой метке (LittleFS.begin() тоже ищет "spiffs"),
+// а внутри уже лежит LittleFS — см. src/core/storage/DEVICE_FS.h.
 #define NEW_SPIFFS_OFFSET 0x2F0000
 #define NEW_SPIFFS_SIZE  0x110000
 
