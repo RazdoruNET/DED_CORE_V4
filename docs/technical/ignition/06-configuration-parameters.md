@@ -6,7 +6,7 @@
 
 | Параметр | Тип | Диапазон | Описание |
 |----------|-----|----------|-----------|
-| `Init_angle` | int | 0-60 | Базовый угол зажигания в градусах до ВМТ |
+| `Init_angle` | int | 0-80 | Базовый угол зажигания в градусах до ВМТ (пресеты ставят 17…80) |
 | `Init_flash_time` | int | 100-5000 | Длительность импульса катушки в микросекундах |
 | `max_rpm` | int | 5000-20000 | Порог максимальных оборотов двигателя |
 | `max_rpm_angle_kiker` | int | 0-20 | Уменьшение угла на максимальных оборотах (градусы) |
@@ -14,11 +14,12 @@
 
 **Пример конфигурации:**
 ```cpp
-#define Init_angle 35           // Искра при 35° до ВМТ
-#define Init_flash_time 2000    // 2мс импульс катушки
-#define max_rpm 14000           // Лимит максимальных RPM
-#define max_rpm_angle_kiker 10  // Уменьшить на 10° на максимальных RPM
-#define filter 20               // Разрешить 20% изменение RPM
+// Это переменные (PROPS_DEF.h), а не #define: значения приходят из NVS и от API.
+int Init_angle = 35;            // искра при 35° до ВМТ
+int Init_flash_time = 2000;     // 2 мс импульс катушки (значение в микросекундах)
+int max_rpm = 14000;            // лимит максимальных RPM
+int max_rpm_angle_kiker = 10;   // уменьшить на 10° на максимальных RPM
+int filter = 20;                // порог отбрасывания слишком ранних импульсов, %
 ```
 
 ---
@@ -27,21 +28,21 @@
 
 | Флаг | Тип | По умолчанию | Описание |
 |------|-----|--------------|----------|
-| `ANGLE_ADVANCE` | bool | false | Включить корректировку угла по дросселю |
-| `QUICKSHIFTER` | bool | false | Включить функциональность QuickShifter |
-| `HIGH_OUTPUT` | bool | true | Выход катушки активный HIGH (false = LOW) |
-| `INVERT_SENSOR` | bool | false | Инвертировать сигнал датчика ВМТ |
-| `INVERT_THROTTLE` | bool | false | Инвертировать чтение датчика дросселя |
-| `SERVO` | bool | false | Включить управление сервоприводом |
+| `ANGLE_ADVANCE` | int | 0 | Включить корректировку угла по дросселю |
+| `QUICKSHIFTER` | int | 0 | Включить функциональность QuickShifter |
+| `HIGH_OUTPUT` | boolean | false | Выход катушки активный HIGH (false = LOW) |
+| `INVERT_SENSOR` | boolean | false | Инвертировать сигнал датчика ВМТ |
+| `INVERT_THROTTLE` | boolean | false | Инвертировать чтение датчика дросселя |
+| `SERVO` | boolean | false | Включить управление сервоприводом |
 
 **Пример конфигурации:**
 ```cpp
-#define ANGLE_ADVANCE true       // Использовать корректировку по дросселю
-#define QUICKSHIFTER true        // Включить QuickShifter
-#define HIGH_OUTPUT true         // Катушка активная HIGH
-#define INVERT_SENSOR false      // Нормальная полярность датчика
-#define INVERT_THROTTLE true     // Инвертированный датчик дросселя
-#define SERVO true               // Включить сервопривод
+int ANGLE_ADVANCE = 1;       // корректировка по дросселю (в коде int, не bool)
+int QUICKSHIFTER = 1;        // включить QuickShifter
+boolean HIGH_OUTPUT = true;  // катушка активная HIGH
+boolean INVERT_SENSOR = false;
+boolean INVERT_THROTTLE = true;
+boolean SERVO = true;
 ```
 
 ---
@@ -50,24 +51,22 @@
 
 | Параметр | Тип | Диапазон | Описание |
 |----------|-----|----------|-----------|
-| `Servo_type` | int | 0-3 | 0=карта, 1=RPM вкл/выкл, 2=ПИД, 3=кривая по температуре |
+| `Servo_type` | int | 0-1 | 0=позиция по карте `servo_valueArr`, 1=вкл/выкл по `Servo_rpm` |
 | `Servo_rpm` | int | 1000-15000 | Порог активации RPM (тип 1) |
 | `Servo_percent` | int | 0-100 | Процент открытия сервопривода (тип 1) |
-| `Servo_angles[2]` | int[2] | 0-180 | Мин/макс углы для карты (тип 0) |
 
 **Примеры конфигурации:**
 
 **Тип 0 (по карте):**
 ```cpp
-#define Servo_type 0
-#define Servo_angles {0, 90}  // 0° на холостых, 90° на максимальных RPM
+int Servo_type = 0;   // позиция на каждую точку карты — в servo_valueArr
 ```
 
 **Тип 1 (RPM вкл/выкл):**
 ```cpp
-#define Servo_type 1
-#define Servo_rpm 5000         // Открыть при 5000 RPM
-#define Servo_percent 50      // Открыть на 50%
+int Servo_type = 1;
+int Servo_rpm = 5000;      // открыть при 5000 RPM
+int Servo_percent = 50;    // открыть на 50%
 ```
 
 ---
@@ -97,7 +96,7 @@
 **Пример конфигурации:**
 ```cpp
 #define rpm_pin 2               // Датчик ВМТ на GPIO 2
-#define throttle_pin A0         // Дроссель на ADC0
+#define throttle_pin 35         // Дроссель: GPIO 35 (ADC1_CH7), см. config/PINS_DEF.h
 ```
 
 ---

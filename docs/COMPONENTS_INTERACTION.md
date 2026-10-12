@@ -23,13 +23,13 @@
 ### 2. Поток конфигурации
 
 ```
-Web интерфейс → HTTP сервер → Обработчик → NVS хранилище → Глобальные переменные
+Веб-интерфейс → HTTP сервер → Обработчик → NVS → глобальные переменные
       ↓              ↓            ↓              ↓              ↓
-  Браузер   →  WEB_SERVER  →  HANDLERS    →  PREFERENCES  →   PROPS
+  Браузер   →  DEVICE_API_ROUTES  →  HANDLERS  →  PREFERENCES  →  PROPS
 ```
 
 **Компоненты:**
-- **WEB_SERVER.h**: HTTP сервер для веб-интерфейса
+- **WEB_SERVER_FUNCS.h** и **DEVICE_API_ROUTES.h**: HTTP сервер и API устройства
 - **HANDLERS.h**: обработчики HTTP запросов
 - **PREFERENCES_MANAGER.h**: работа с NVS хранилищем
 - **PROPS.h/PROPS_DEF.h**: глобальные переменные конфигурации
@@ -87,7 +87,7 @@ void handleMoto() {
 
 ### Сетевая подсистема
 
-#### WebSocket сервер (WEB_SOCKET_SERVER.h)
+#### WebSocket сервер (WEB_SOCKET_FUNCS.h)
 ```cpp
 void onEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   switch(type) {
@@ -118,11 +118,11 @@ String getDataJson() {
 }
 ```
 
-#### HTTP сервер (WEB_SERVER.h)
+#### HTTP сервер (WEB_SERVER_FUNCS.h + DEVICE_API_ROUTES.h)
 ```cpp
 void initServerRoutes() {
   // Получение текущих данных
-  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
     String json = getDataJson();
     request->send(200, "application/json", json);
   });
@@ -137,7 +137,7 @@ void initServerRoutes() {
   });
   
   // Управление профилями
-  server.on("/cart_profile", HTTP_POST, [](AsyncWebServerRequest *request) {
+  server.on("/wifi/auto", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("profile_data")) {
       updateCartProfile(request->getParam("profile_data")->value());
     }
@@ -243,7 +243,7 @@ void TaskAlarmCode(void *pvParameters) {
 3. **Интеграция в основной цикл** `handleMoto()`
 
 ### Расширение сетевых функций
-1. **Добавление новых endpoints** в `WEB_SERVER.h`
+1. **Добавление новых endpoints** в `DEVICE_API_ROUTES.h` (`registerDeviceApiRoutes`)
 2. **Расширение WebSocket протокола** новыми сообщениями
 3. **Интеграция с внешними API** через HTTP клиент
 

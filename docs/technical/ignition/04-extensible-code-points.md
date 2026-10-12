@@ -197,8 +197,8 @@ Advance_angle = expInterpolate(RPM, rpmsArr[i], rpmsArr[i+1],
 
 **Пример 1: Датчик температуры**
 ```cpp
-// Добавить в Config.h
-#define TEMP_PIN A3
+// Добавить в Config.h (свободный вход ADC1 ESP32, например GPIO 34)
+#define TEMP_PIN 34
 int Termo = 0;  // Глобальная переменная
 
 // В handlePin()
@@ -228,7 +228,7 @@ Advance_angle = Advance_angle - tempCorrection;
 **Пример 2: Датчик MAP (абсолютное давление во впускном коллекторе)**
 ```cpp
 // Добавить в Config.h
-#define MAP_PIN A4
+#define MAP_PIN 39   // ADC1_CH3, только вход
 int MAP = 0;  // Глобальная переменная (кПа)
 
 // В handlePin()
@@ -328,17 +328,14 @@ bool isQuickShifterActive() {
 
 **Текущий алгоритм (два типа):**
 ```cpp
-if (SERVO) {
-    if (Servo_type == 0) {
-        // Позиция по карте
-        Servo_pos = map(RPM, 0, max_rpm, Servo_angles[0], Servo_angles[1]);
-    } else if (Servo_type == 1) {
-        // Включение/выключение по RPM
-        if (RPM >= Servo_rpm) {
-            Servo_pos = Servo_percent;
-        } else {
-            Servo_pos = 0;
-        }
+// Позиция — не пара min/max, а карта servo_valueArr: 22 точки на каждую из трёх карт.
+if (Servo_type == 0) {
+    Servo_position = servo_valueArr[active_cart][index];
+} else if (Servo_type == 1) {
+    if (RPM >= Servo_rpm) {
+        Servo_position = Servo_percent;
+    } else {
+        Servo_position = 0;
     }
 }
 ```

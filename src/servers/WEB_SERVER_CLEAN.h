@@ -1,5 +1,5 @@
-// WEB_SERVER_CLEAN.h - Clean web server declarations only
-// This file replaces the corrupted WEB_SERVER.h
+// WEB_SERVER_CLEAN.h - объявления веб-сервера и его серверов.
+// Определения — в WEB_SERVER_FUNCS.h, маршруты API устройства — в DEVICE_API_ROUTES.h.
 
 #include <ArduinoJson.h>
 #include <Preferences.h>
