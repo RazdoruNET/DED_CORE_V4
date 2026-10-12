@@ -167,39 +167,39 @@ void handleCartSelection() {
 
 ### 6. Задачи RTOS (`core/tasks/`)
 
-#### TASKS.h
-```cpp
-// Общие объявления задач
-void TaskMotoCode(void *pvParameters);
-void TaskServerCode(void *pvParameters);
-void TaskControlCode(void *pvParameters);
-void TaskAlarmCode(void *pvParameters);
-```
+Задачи объявлены в `TASK_DECL.h` (через `TASKS.h`), тела — в отдельных файлах, которые
+подключает `.ino` после обработчиков. Создаются в `core/init/SYSTEM_INIT.h`:
 
-#### MotoTask.h
-```cpp
-void TaskMotoCode(void *pvParameters) {
-  while(1) {
-    handleMoto();
-    vTaskDelay(1);
-  }
-}
-```
+| Задача | Файл | Стек | Приоритет |
+|---|---|---|---|
+| `TaskServerCode` | `ServerTask.h` | 20000 | 2 |
+| `TaskControlCode` | `ControlTask.h` | 1024 | 1 |
+| `TaskOtaCode` | `OtaTask.h` | 16384 | 1 |
+| `TaskAlarmCode` | `AlarmTask.h` | 2000 | 1 (только когда `SOUND`) |
+| `TaskMotoCode` | `MotoTask.h` — **не используется**: `handleMoto()` вызывается прямо из `loop()` | — | — |
 
-#### ServerTask.h
 ```cpp
-void TaskServerCode(void *pvParameters) {
+// ServerTask.h — реальное содержимое
+void TaskServerCode(void * parameter) {
   initWifi();
   initWebSocket();
   initServer();
-  
-  while(1) {
+  startTlsServer();
+
+  for(;;){
     dnsServer.processNextRequest();
     handleServer();
-    vTaskDelay(1);
+    handleTlsServer();
+    tlsHandleCertificateMaintenance();
+    maybeStartMigrationFromService();
+    otaManager.handle();
+    vTaskDelay(2);
   }
 }
 ```
+
+`TaskOtaCode` появилась ради TLS-рукопожатия с сервисом: 16 КБ стека под него не
+помещались в задачу сервера.
 
 ### 7. Сетевые серверы (`servers/`)
 
@@ -216,21 +216,32 @@ void initRecoveryWifi() {
 }
 ```
 
-#### WEB_SERVER.h
+#### WEB_SERVER_FUNCS.h и DEVICE_API_ROUTES.h
+
+`initServer()` и базовые маршруты — в `WEB_SERVER_FUNCS.h`, API устройства
+(`/max`, `/servo`, `/update_card`, `/wifi`, …) — в `DEVICE_API_ROUTES.h`,
+функция `registerDeviceApiRoutes()`.
+
 ```cpp
+// WEB_SERVER_FUNCS.h
 void initServer() {
   SPIFFS.begin(true);
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
-  
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", FIRMWARE_VERSION);
-  });
-  
+
+  initServerRoutes();
+  registerDeviceApiRoutes(&server);
+  registerUpdateRoutes(&server);      // /update, /api/update
+  registerMigrationRoutes(&server);   // /api/migration, /api/migrate
+  registerTlsHttpRoutes(&server);     // /api/status, /api/tls, /api/provision
+
   server.begin();
 }
 ```
 
-#### WEB_SOCKET_SERVER.h
+Маршруты статики проверяют наличие файла: если запрошенного файла в SPIFFS нет,
+запрос уходит следующему обработчику — на этом и держатся `/update` и `/api/*`.
+
+#### WEB_SOCKET_FUNCS.h (телеметрия и команды, порт 81)
 ```cpp
 void onEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   switch(type) {

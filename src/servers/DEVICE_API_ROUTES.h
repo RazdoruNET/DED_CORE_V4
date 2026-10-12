@@ -1,43 +1,34 @@
+#ifndef DEVICE_API_ROUTES_H
+#define DEVICE_API_ROUTES_H
+
+// HTTP API устройства на порту 80 — то, чем управляет вшитый веб-интерфейс и внешние
+// интеграции (см. docs/api/README.md).
+//
+// Маршруты жили в WEB_SERVER.h, но тот файл перестали подключать при рефакторинге
+// (WEB_SERVER_CLEAN.h объявляет только функции, а определения живут в WEB_SERVER_FUNCS.h),
+// и весь API оказался мёртвым: встроенная страница открывалась, но сохранить настройки
+// не могла — запросы уходили на 404. Здесь маршруты собраны заново и регистрируются
+// из initServer().
+//
+// Параметры читаются через hasParam: страница обращается к /modulator тремя отдельными
+// запросами (filter, time, high), а к /sensor и /throttle — только с invert, поэтому
+// безусловное чтение параметра уронило бы устройство.
+
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <WiFi.h>
-#include <AsyncTCP.h>
 #include <SPIFFS.h>
+#include <ESPAsyncWebServer.h>
 #include "config/PROPS.h"
 #include "core/ignition/carts/MOTO_CARTS.h"
-#include "WEB_SERVER_VARS.h"
 #include "core/ota/HYBRID_OTA.h"
 
 extern HybridOTAManager otaManager;
 
-class CaptiveRequestHandler : public AsyncWebHandler {
-public:
-  CaptiveRequestHandler() {}
-  virtual ~CaptiveRequestHandler() {}
-
-  bool canHandle(AsyncWebServerRequest *request){
-    // Serial.println("CaptiveRequestHandler canHandle");
-    return true;
-  }
-
-};
-
-// Function declarations - definitions in WEB_SERVER_FUNCS.h
-void initServer();
-void initRecoveryServer();
-    request->send(200, "text/plain", FIRMWARE_VERSION);
-   
-  });
-
-  server.on("/reinit", HTTP_GET, [] (AsyncWebServerRequest *request)
-  {
-    INIT_SYSTEM  = true;
-    
-    request->send(200, "text/plain", FIRMWARE_VERSION);
-  });
-
-
-  server.on("/card", HTTP_GET, [] (AsyncWebServerRequest *request) 
+/// Регистрирует API устройства на переданном сервере (обычный HTTP-сервер, порт 80).
+void registerDeviceApiRoutes(AsyncWebServer *server) {
+server->on("/card", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("id")) 
     {
@@ -51,7 +42,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/update_card", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/update_card", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     
     Serial.println("update_card");
@@ -118,7 +109,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/max", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/max", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("rpm") && request->hasParam("angle")) 
     {
@@ -134,7 +125,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/angle/advance", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/angle/advance", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("status")) 
     {
@@ -145,7 +136,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/angle", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/angle", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("init")) 
     {
@@ -156,7 +147,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/type", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/type", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("set")) 
     {
@@ -381,14 +372,14 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/flash", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/flash", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     AFTER_REBOOT = false;
     SAVE_CONFIG = true;
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/wifi/updator", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/wifi/updator", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("ssid")) 
     {
@@ -400,8 +391,8 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
     
   });
-  
-  server.on("/wifi", HTTP_GET, [] (AsyncWebServerRequest *request) 
+
+server->on("/wifi", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("ssid")) 
     {
@@ -413,7 +404,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/wifi/auto", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/wifi/auto", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("ssid")) {
       WIFI_UPDATE_SSID = request->getParam("ssid")->value();
@@ -433,8 +424,7 @@ void initRecoveryServer();
     request->send(200, "application/json", "{\"enabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? "true" : "false") + ",\"ssid\":\"" + WIFI_UPDATE_SSID + "\",\"status\":\"" + WIFI_UPDATE_STATUS + "\",\"pass_set\":" + String(WIFI_UPDATE_PASSWORD.length() > 0 ? "true" : "false") + ",\"connected\":" + String(WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID ? "true" : "false") + ",\"last_check_time\":" + String(WIFI_LAST_CHECK_TIME) + ",\"last_attempt_time\":" + String(WIFI_LAST_ATTEMPT_TIME) + ",\"retry_interval_ms\":" + String(WIFI_RETRY_INTERVAL_MS) + ",\"next_allowed_check_ms\":" + String((WIFI_LAST_ATTEMPT_TIME==0)?0:((WIFI_LAST_ATTEMPT_TIME+WIFI_RETRY_INTERVAL_MS)-millis())) + "}");
   });
 
-  // Device status endpoint
-  server.on("/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
+server->on("/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
     bool sta_connected = (WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID);
     FirmwareInfo info = otaManager.getLastFirmwareInfo();
 
@@ -487,8 +477,7 @@ void initRecoveryServer();
     request->send(200, "application/json", response);
   });
 
-  // Cart type metadata endpoint
-  server.on("/cart/types", HTTP_GET, [] (AsyncWebServerRequest *request) {
+server->on("/cart/types", HTTP_GET, [] (AsyncWebServerRequest *request) {
     String resp = "{";
     resp += "\"types\":[";
     resp += "{\"id\":0,\"label\":\"7-point default\",\"points\":7},";
@@ -498,8 +487,7 @@ void initRecoveryServer();
     request->send(200, "application/json", resp);
   });
 
-  // Device configuration endpoint
-  server.on("/device/config", HTTP_GET, [] (AsyncWebServerRequest *request) {
+server->on("/device/config", HTTP_GET, [] (AsyncWebServerRequest *request) {
     String resp = "{";
     resp += "\"activeCart\":" + String(active_cart) + ",";
     resp += "\"type\":" + String(type) + ",";
@@ -520,8 +508,7 @@ void initRecoveryServer();
     request->send(200, "application/json", resp);
   });
 
-  // WiFi scan endpoint
-  server.on("/wifi/scan", HTTP_GET, [] (AsyncWebServerRequest *request) {
+server->on("/wifi/scan", HTTP_GET, [] (AsyncWebServerRequest *request) {
     int n = WiFi.scanNetworks();
     String resp = "{";
     resp += "\"networks\": [";
@@ -538,8 +525,7 @@ void initRecoveryServer();
     request->send(200, "application/json", resp);
   });
 
-  // Manual connect endpoint
-  server.on("/wifi/connect", HTTP_GET, [] (AsyncWebServerRequest *request) {
+server->on("/wifi/connect", HTTP_GET, [] (AsyncWebServerRequest *request) {
     if (request->hasParam("ssid")) {
       WIFI_UPDATE_SSID = request->getParam("ssid")->value();
       preferences.putString("WIFI_UPDATE_SSID", WIFI_UPDATE_SSID);
@@ -571,7 +557,7 @@ void initRecoveryServer();
     request->send(200, "application/json", out);
   });
 
-  server.on("/quickshifter", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/quickshifter", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("status")) 
     {
@@ -580,8 +566,8 @@ void initRecoveryServer();
     }
     request->send(200, "text/plain", "OK");
   });
-  
-  server.on("/modulator", HTTP_GET, [] (AsyncWebServerRequest *request) 
+
+server->on("/modulator", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("time")) 
     {
@@ -606,7 +592,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/sensor", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/sensor", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("invert")) 
     {
@@ -616,7 +602,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/carts/switching", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/carts/switching", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("status")) 
     {
@@ -626,7 +612,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/servo", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/servo", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("status")) 
     {
@@ -646,7 +632,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/servo_test", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/servo_test", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("status")) 
     {
@@ -656,7 +642,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/throttle", HTTP_GET, [] (AsyncWebServerRequest *request) 
+server->on("/throttle", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
     if (request->hasParam("invert")) 
     {
@@ -666,8 +652,7 @@ void initRecoveryServer();
     request->send(200, "text/plain", "OK");
   });
 
-  // OTA Endpoints
-  server.on("/ota/check", HTTP_GET, [] (AsyncWebServerRequest *request) {
+server->on("/ota/check", HTTP_GET, [] (AsyncWebServerRequest *request) {
     bool updateAvailable = otaManager.checkForUpdate();
     FirmwareInfo info = otaManager.getLastFirmwareInfo();
     
@@ -687,7 +672,7 @@ void initRecoveryServer();
     request->send(200, "application/json", response);
   });
 
-  server.on("/ota/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
+server->on("/ota/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
     FirmwareInfo info = otaManager.getLastFirmwareInfo();
     bool updateAvailable = info.updateAvailable;
     bool connected = (WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID);
@@ -714,7 +699,7 @@ void initRecoveryServer();
     request->send(200, "application/json", response);
   });
 
-  server.on("/ota/update", HTTP_POST, [] (AsyncWebServerRequest *request) {
+server->on("/ota/update", HTTP_POST, [] (AsyncWebServerRequest *request) {
     bool success = otaManager.performUpdate();
     
     if (success) {
@@ -724,7 +709,7 @@ void initRecoveryServer();
     }
   });
 
-  server.on("/ota/mode", HTTP_POST, [] (AsyncWebServerRequest *request) {
+server->on("/ota/mode", HTTP_POST, [] (AsyncWebServerRequest *request) {
     if (request->hasParam("mode")) {
       int mode = request->getParam("mode")->value().toInt();
       OTA_MODE = mode;
@@ -739,7 +724,7 @@ void initRecoveryServer();
     }
   });
 
-  server.on("/ota/password", HTTP_POST, [] (AsyncWebServerRequest *request) {
+server->on("/ota/password", HTTP_POST, [] (AsyncWebServerRequest *request) {
     if (request->hasParam("password")) {
       String password = request->getParam("password")->value();
       OTA_PASSWORD = password;
@@ -752,71 +737,27 @@ void initRecoveryServer();
     }
   });
 
-  server.onNotFound([](AsyncWebServerRequest * request) {
-    request->redirect("/");
-  });
-  
-  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
-  
-  dnsServer.start(53, "*", WiFi.softAPIP());
-  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
-  
-  server.begin();
-
-  // Serial.println("HTTP server started");
-}
-
-void initRecoveryServer() 
-{
-  // Serial.println("CORE");
-  // Serial.println(xPortGetCoreID());
-
-  server.on("/", HTTP_GET, [] (AsyncWebServerRequest *request)
-  {
-    request->redirect("/update");
-  });
-
-  server.on("/wifi/ssid", HTTP_GET, [] (AsyncWebServerRequest *request)
+server->on("/wifi/ssid", HTTP_GET, [] (AsyncWebServerRequest *request)
   {
     request->send(200, "text/plain", APSSID1);
   });
 
-  server.on("/wifi/pass", HTTP_GET, [] (AsyncWebServerRequest *request)
+server->on("/wifi/pass", HTTP_GET, [] (AsyncWebServerRequest *request)
   {
     request->send(200, "text/plain", APPSK1);
   });
 
-  server.on("/core/reboot", HTTP_GET, [] (AsyncWebServerRequest *request)
+server->on("/core/reboot", HTTP_GET, [] (AsyncWebServerRequest *request)
   {
     request->send(200, "text/plain", "REBOOT");
     ESP.restart();
   });
-  
-  server.on("/core/version", HTTP_GET, [] (AsyncWebServerRequest *request)
+
+server->on("/core/version", HTTP_GET, [] (AsyncWebServerRequest *request)
   {
     request->send(200, "text/plain", FIRMWARE_VERSION);
    
   });
-
-  server.on("/reinit", HTTP_GET, [] (AsyncWebServerRequest *request)
-  {
-    INIT_SYSTEM  = true;
-    AFTER_REBOOT = true;
-    
-    request->send(200, "text/plain", FIRMWARE_VERSION);
-  });
-
- 
-  server.onNotFound([](AsyncWebServerRequest * request) {
-    request->send(404, "text/plain", "NOT FOUND ROUTE");
-  });
-  
-  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
-  
-  dnsServer.start(53, "*", WiFi.softAPIP());
-  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
-  
-  server.begin();
-
-  // Serial.println("HTTP server started");
 }
+
+#endif // DEVICE_API_ROUTES_H

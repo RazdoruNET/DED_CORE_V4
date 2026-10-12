@@ -1,57 +1,45 @@
 # Конфигурация DED_CORE_V4
 
+Все параметры — **переменные**, объявленные в `src/config/PROPS.h` и определённые в
+`src/config/PROPS_DEF.h`. Ненулевые значения ниже — это то, что реально задано в коде;
+при старте `setupConfiguration()` подменяет их значениями из NVS (`src/config/CONFIG.h`),
+а меняются они эндпоинтами API (`/max`, `/angle`, `/modulator`, `/servo`, …) или
+веб-интерфейсом. Поэтому «значения по умолчанию» ниже — это то, что видит устройство,
+когда в NVS ещё ничего не записано.
+
 ## Основные параметры
 
 ### Системные настройки
 ```cpp
-// Версия прошивки
-#define FIRMWARE_VERSION "0.0.1"
+// Версия прошивки (PROPS.h, #define)
+#define FIRMWARE_VERSION "4.0.0"
 
-// Максимальные обороты
-int max_rpm = 10000;
-
-// Коррекция при отсечке
-int max_rpm_angle_kiker = 4;
-
-// Начальный угол зажигания
-int Init_angle = 43;
-
-// Время искры
-int Init_flash_time = 10;
+int max_rpm = 0;               // порог отсечки, задаётся снаружи (типовое 10000-14000)
+int max_rpm_angle_kiker = 0;   // снятие угла на отсечке, град (типовое 4)
+int Init_angle = 0;            // начальный угол, град до ВМТ (типовые 17-80, см. пресеты)
+int Init_flash_time = 0;       // длительность импульса катушки, мкс (типовое 10)
+int filter = 0;                // фильтр шума по RPM, % изменения периода (типовое 30)
 ```
 
 ### Настройки датчиков
 ```cpp
-// Фильтр RPM
-int filter = 30;
-
-// Инверсия датчика положения
-bool INVERT_SENSOR = false;
-
-// Инверсия датчика дросселя
-bool INVERT_THROTTLE = false;
-
-// Тип выхода (HIGH/LOW)
-bool HIGH_OUTPUT = true;
+boolean INVERT_SENSOR = false;   // инверсия сигнала датчика ВМТ
+boolean INVERT_THROTTLE = false; // инверсия датчика дросселя
+boolean HIGH_OUTPUT = false;     // полярность выхода на коммутатор (true = активный HIGH)
 ```
 
 ### Функциональные флаги
 ```cpp
-// Коррекция угла по дросселю
-bool ANGLE_ADVANCE = true;
-
-// Быстрое переключение передач
-bool QUICKSHIFTER = false;
-
-// Переключение карт кнопками
-bool CARTS_SWHITCHING = true;
-
-// Звуковая сигнализация
-bool SOUND = true;
-
-// Управление сервоприводом
-bool SERVO = false;
+int ANGLE_ADVANCE = 0;      // коррекция угла по дросселю
+int QUICKSHIFTER = 0;       // быстрое переключение передач
+int CARTS_SWHITCHING = 0;   // переключение карт кнопками
+boolean SOUND = false;      // звуковая сигнализация
+boolean SERVO = false;      // управление сервоприводом
+int QS_time = 135;          // пауза искры при переключении, мс
 ```
+
+> Флаги `ANGLE_ADVANCE`, `QUICKSHIFTER`, `CARTS_SWHITCHING` объявлены как `int`, а не
+> `bool`: так их писали исходные обработчики, и в NVS они лежат целыми (`getInt`).
 
 ## Карточки зажигания
 
@@ -86,70 +74,65 @@ float angles_adjustmentArr[3][22] = {
 
 ## Предустановленные двигатели
 
-### YX125
-```cpp
-float anglesArr_yx125[22] = {
-    21, 23, 24, 26, 28, 30, 32, 34, 35, 36, 37, 37, 37, 36, 35, 34, 32, 30, 28, 26, 24, 22
-};
-```
+Это наборы углов в `src/core/ignition/carts/Angles_*.h` — по 22 точки на три карты.
+Выбираются они параметром `new_chart_type` эндпоинта `/type` вместе с типом карты,
+и выбор заодно перезаписывает `Init_angle` (см. таблицу ниже).
 
-### YX140
-```cpp
-float anglesArr_yx140[22] = {
-    20, 22, 23, 25, 27, 29, 31, 33, 34, 35, 36, 36, 36, 35, 34, 33, 31, 29, 27, 25, 23, 21
-};
-```
+| `new_chart_type` | Файл | Начальный угол, который ставится |
+|---|---|---|
+| 1 | `Angles_YX125.h` | 35 |
+| 2 | `Angles_YX140.h` | 35 |
+| 3 | `Angles_SmartCom.h` | 43 |
+| 4 | `Angles_166FMM.h` (+ `rpmsArr_4`) | 35 |
+| 5 | `Angles_ZS190.h` | 17 |
+| 6 | `Angles_175FMM.h` (+ `rpmsArr_3`) | 80 |
+| другие | — | `Init_angle / 2 ± 1`, корректировки и сервопривод обнуляются |
 
-### SmartCom
-```cpp
-float anglesArr_smartcom[22] = {
-    22, 24, 25, 27, 29, 31, 33, 35, 36, 37, 38, 38, 38, 37, 36, 35, 33, 31, 29, 27, 25, 23
-};
-```
+Значения (первая карта; во всех файлах карты 0, 1 и 2 одинаковы):
 
-### ZS190
 ```cpp
-float anglesArr_zs190[22] = {
-    18, 20, 21, 23, 25, 27, 29, 31, 32, 33, 34, 34, 34, 33, 32, 31, 29, 27, 25, 23, 21, 19
-};
-```
-
-### 166FMM
-```cpp
-float anglesArr_166fmm[22] = {
-    19, 21, 22, 24, 26, 28, 30, 32, 33, 34, 35, 35, 35, 34, 33, 32, 30, 28, 26, 24, 22, 20
-};
-```
-
-### 175FMM
-```cpp
-float anglesArr_175fmm[22] = {
-    17, 19, 20, 22, 24, 26, 28, 30, 31, 32, 33, 33, 33, 32, 31, 30, 28, 26, 24, 22, 20, 18
-};
+float anglesArr_yx125[][22]   = { 21, 25, 25, 28, 32, 33, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32 };
+float anglesArr_yx140[][22]   = { 21, 25, 25, 28, 32, 33, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32 };
+float anglesArr_smartcom[][22]= { 21, 23, 24, 26, 29, 29, 31, 33, 35, 37, 39, 40, 41, 42, 43, 43, 42, 41, 40, 39, 28, 28 };
+float anglesArr_166fmm[][22]  = { 20, 22, 22, 28, 29, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30 };
+float anglesArr_zs190[][22]   = { 10, 13, 13, 14, 15, 16, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17 };
+float anglesArr_175fmm[][22]  = { 22, 27, 32, 48, 56, 69, 80, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 };
+// 172FMM применяется как RPM-набор (rpmsArr_4 / new_chart_type = 4), 177FMM в выборе пока не участвует
+float anglesArr_172fmm[][22]  = { 20, 26, 26, 30, 32, 33, 33, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 };
+float anglesArr_177fmm[][22]  = {  8, 15, 15, 25, 35, 35, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 };
 ```
 
 ## Настройки WiFi
 
-### Основная сеть
+### Точка доступа самого блока
 ```cpp
-String APSSID = "DED_BOX_V4";
-String APPSK = "162534Bnm123q";
+// PROPS_DEF.h: это та сеть, к которой подключается телефон владельца
+String APSSID1 = "DED_BOX_V4";
+String APPSK1  = "162534Bnm123q";
 ```
+Меняются эндпоинтом `/wifi?ssid=&appsk=` (ключи NVS `APSSID1`/`APPSK1`).
+В режиме восстановления поднимается отдельная точка `DED_RECOVERY` с паролем
+`1234567890` (`src/servers/WIFI_SERVER.h`, константы в коде).
 
-### Сеть обновлений
+### Сеть для автообновления (блок — клиент)
 ```cpp
-String UPDATOR_SSID = "DED_UPDATOR";
-String UPDATOR_PSK = "9876543210";
+String APSSID = "";                // сеть-источник интернета, по умолчанию не задана
+String APPSK  = "";
+bool   WIFI_AUTO_UPDATE_ENABLED = false;
+String WIFI_UPDATE_SSID     = "";
+String WIFI_UPDATE_PASSWORD = "";
 ```
+Задаётся эндпоинтом `/wifi/updator?ssid=&appsk=` (ключи `APSSID`/`APPSK`) либо
+`/wifi/auto?ssid=&pass=&enabled=` — второй ещё и включает автообновление.
 
 ## Сервопривод
 
 ### Настройки сервопривода
 ```cpp
-bool SERVO = false;
-int Servo_type = 1;
-int Servo_rpm = 8000;
-int Servo_percent = 30;
+boolean SERVO = false;
+int Servo_type = 1;      // 0 — положение по карте servo_valueArr, 1 — вкл/выкл по RPM
+int Servo_rpm = 8000;    // порог для Servo_type = 1
+int Servo_percent = 30;  // на сколько открывать при Servo_type = 1
 
 // Позиции сервопривода
 int servo_valueArr[3][22] = {
@@ -163,7 +146,7 @@ int servo_valueArr[3][22] = {
 
 ### Настройки быстрого переключения
 ```cpp
-bool QUICKSHIFTER = false;
+int QUICKSHIFTER = 0;    // 0/1, пауза искры берётся из quick_adjustmentArr (мс)
 
 // Время коррекции для каждой точки
 int quick_adjustmentArr[3][22] = {
@@ -175,133 +158,51 @@ int quick_adjustmentArr[3][22] = {
 
 ## Сохранение и загрузка
 
-### NVS Preferences
-```cpp
-void loadConfiguration() {
-    preferences.begin("ded_box", false);
-    
-    // Загрузка основных параметров
-    active_cart = preferences.getInt("active_cart", 0);
-    type = preferences.getInt("type", 2);
-    max_rpm = preferences.getInt("max_rpm", 10000);
-    filter = preferences.getInt("filter", 30);
-    Init_angle = preferences.getInt("Init_angle", 43);
-    
-    // Загрузка флагов
-    HIGH_OUTPUT = preferences.getBool("HIGH_OUTPUT", true);
-    ANGLE_ADVANCE = preferences.getBool("ANGLE_ADVANCE", true);
-    QUICKSHIFTER = preferences.getBool("QUICKSHIFTER", false);
-    INVERT_SENSOR = preferences.getBool("INVERT_SENSOR", false);
-    INVERT_THROTTLE = preferences.getBool("INVERT_THROTTLE", false);
-    CARTS_SWHITCHING = preferences.getBool("CARTS_SWHITCHING", true);
-    SERVO = preferences.getBool("SERVO", false);
-    
-    // Загрузка массивов
-    preferences.getBytes("rpmsArr", rpmsArr, sizeof(rpmsArr));
-    preferences.getBytes("anglesArr", anglesArr, sizeof(anglesArr));
-    preferences.getBytes("angles_adjustmentArr", angles_adjustmentArr, sizeof(angles_adjustmentArr));
-    preferences.getBytes("quick_adjustmentArr", quick_adjustmentArr, sizeof(quick_adjustmentArr));
-    preferences.getBytes("servo_valueArr", servo_valueArr, sizeof(servo_valueArr));
-    
-    preferences.end();
-}
+Настройки живут в NVS (Preferences). Две области:
 
-void saveConfiguration() {
-    preferences.begin("ded_box", false);
-    
-    // Сохранение основных параметров
-    preferences.putInt("active_cart", active_cart);
-    preferences.putInt("type", type);
-    preferences.putInt("max_rpm", max_rpm);
-    preferences.putInt("filter", filter);
-    preferences.putInt("Init_angle", Init_angle);
-    
-    // Сохранение флагов
-    preferences.putBool("HIGH_OUTPUT", HIGH_OUTPUT);
-    preferences.putBool("ANGLE_ADVANCE", ANGLE_ADVANCE);
-    preferences.putBool("QUICKSHIFTER", QUICKSHIFTER);
-    preferences.putBool("INVERT_SENSOR", INVERT_SENSOR);
-    preferences.putBool("INVERT_THROTTLE", INVERT_THROTTLE);
-    preferences.putBool("CARTS_SWHITCHING", CARTS_SWHITCHING);
-    preferences.putBool("SERVO", SERVO);
-    
-    // Сохранение массивов
-    preferences.putBytes("rpmsArr", rpmsArr, sizeof(rpmsArr));
-    preferences.putBytes("anglesArr", anglesArr, sizeof(anglesArr));
-    preferences.putBytes("angles_adjustmentArr", angles_adjustmentArr, sizeof(angles_adjustmentArr));
-    preferences.putBytes("quick_adjustmentArr", quick_adjustmentArr, sizeof(quick_adjustmentArr));
-    preferences.putBytes("servo_valueArr", servo_valueArr, sizeof(servo_valueArr));
-    
-    preferences.end();
-}
+1. `init_test` — служебный флаг «первый запуск»: `initializePreferences()` проверяет его и
+   при отсутствии стирает NVS целиком (`nvs_flash_erase`), чтобы устройство стартовало
+   с чистых настроек, а не с мусора после перепрошивки.
+2. `ded_box` — рабочие настройки: `initializeMainPreferences()` открывает область,
+   `setupConfiguration()` → `loadConfig()` (`src/config/CONFIG.h`) читает её при старте.
+
+Скалярные ключи (`loadConfig`):
+
+| Ключ | Тип | Параметр |
+|---|---|---|
+| `active_cart` | int | активная карта (0–2) |
+| `type` | int | тип карты (число точек: 7 / 12 / 22) |
+| `max_rpm`, `max_rpm_ang_k` | int | отсечка и снятие угла на ней |
+| `filter` | int | фильтр шума по RPM, % |
+| `Init_angle`, `flash_time` | int | начальный угол и время искры |
+| `HIGH_OUTPUT` | bool | полярность выхода на коммутатор |
+| `ANGLE_ADV`, `QUICKSHIFT`, `CART_SWHITCH`, `INVERT_SENS`, `INVERT_THROT`, `SERVO` | bool | флаги |
+| `servo_type`, `servo_rpm`, `servo_perc` | int | параметры сервопривода |
+| `APSSID`, `APPSK` | string | сеть автообновления |
+| `WIFI_AUTO_UPDATE_ENABLED`, `WIFI_UPDATE_SSID`, `WIFI_UPDATE_PASSWORD`, `WIFI_UPDATE_STATUS` | bool/string | автообновление |
+| `WIFI_LAST_CHECK_TIME`, `WIFI_LAST_ATTEMPT_TIME` | ulong | время последних попыток |
+| `UPDATE_MODE`, `UPDATE_CORE`, `INIT_SYSTEM` | bool | режимы обновления и перезапуска |
+| `OTA_MODE`, `OTA_PASSWORD`, `OTA_JWT_TOKEN` | int/string | параметры OTA |
+| `initSPIFFS` | bool | разметка SPIFFS уже под новую прошивку |
+
+Точки карт лежат **не массивами, а отдельными ключами** на каждую точку каждой карты:
+
+```cpp
+// c — карта (0..2), id — точка (0..21); в NVS значения хранятся целыми с масштабом 100
+String x = String(c);
+String y = String(id);
+String addres_rpm   = ("rpm"    + x + "_" + y).c_str();  // обороты точки
+String addres_ang   = ("angles" + x + "_" + y).c_str();  // угол
+String addres_aa    = ("aa"     + x + "_" + y).c_str();  // коррекция по дросселю, %
+String addres_qa    = ("qa"     + x + "_" + y).c_str();  // пауза быстрого шифтера, мс
+String addres_servo = ("servo"  + x + "_" + y).c_str();  // положение сервопривода
+
+rpmsArr[c][id] = ((float) preferences.getInt(addres_rpm, (int)(rpmsArr[c][id] * 100))) / 100;
 ```
 
-## Сброс настроек
+Масштаб ×100 нужен, чтобы хранить дробные углы и коррекции. Эти же ключи пишут
+эндпоинты `/update_card` и `/type`; миграция с заводской прошивки переносит их из
+`/config.json` SPIFFS (`src/core/migration/LEGACY_CONFIG_IMPORT.h`).
 
-### Полный сброс
-```cpp
-void resetToDefaults() {
-    // Сброс основных параметров
-    active_cart = 0;
-    type = 2;
-    max_rpm = 10000;
-    filter = 30;
-    Init_angle = 43;
-    
-    // Сброс флагов
-    HIGH_OUTPUT = true;
-    ANGLE_ADVANCE = true;
-    QUICKSHIFTER = false;
-    INVERT_SENSOR = false;
-    INVERT_THROTTLE = false;
-    CARTS_SWHITCHING = true;
-    SERVO = false;
-    
-    // Загрузка стандартных карт
-    loadDefaultMaps();
-    
-    // Сохранение настроек
-    saveConfiguration();
-}
-```
-
-### Сброс NVS
-```cpp
-void clearNVS() {
-    Serial.println("Очистка NVS...");
-    nvs_flash_erase();
-    nvs_flash_init();
-    Serial.println("NVS очищен");
-    
-    // Перезагрузка системы
-    ESP.restart();
-}
-```
-
-## Валидация настроек
-
-### Проверка диапазонов
-```cpp
-bool validateConfiguration() {
-    // Проверка основных параметров
-    if (active_cart < 0 || active_cart > 2) return false;
-    if (type < 0 || type > 2) return false;
-    if (max_rpm < 1000 || max_rpm > 20000) return false;
-    if (filter < 1 || filter > 100) return false;
-    if (Init_angle < 0 || Init_angle > 90) return false;
-    
-    // Проверка карт
-    for (int cart = 0; cart < 3; cart++) {
-        for (int i = 0; i < 22; i++) {
-            if (rpmsArr[cart][i] < 0 || rpmsArr[cart][i] > 20000) return false;
-            if (anglesArr[cart][i] < 0 || anglesArr[cart][i] > 90) return false;
-        }
-    }
-    
-    return true;
-}
-```
-
----
-
-Эта документация предоставляет полное описание всех конфигурационных параметров системы и методов их сохранения.
+Функции `saveConfig()` и `clearPreferences()` существуют, но сохранение идёт напрямую
+через `preferences.put*` в обработчиках эндпоинтов, а не через `saveConfig()`.

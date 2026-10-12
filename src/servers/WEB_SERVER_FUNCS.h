@@ -2,6 +2,7 @@
 // This file should be included only once in the main compilation unit
 
 #include "WEB_SERVER_VARS.h"
+#include "DEVICE_API_ROUTES.h"
 #include "core/net/UPDATE_SERVER.h"
 #include "core/migration/MIGRATION_SERVER.h"
 #include "core/net/TLS_HTTP_ROUTES.h"
@@ -34,6 +35,7 @@ void initServer() {
   
   initServerRoutes();
   initRecoveryServerRoutes();
+  registerDeviceApiRoutes(&server);
   registerUpdateRoutes(&server);
   registerMigrationRoutes(&server);
   registerTlsHttpRoutes(&server);

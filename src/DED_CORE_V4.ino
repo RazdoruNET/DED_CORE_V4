@@ -22,7 +22,7 @@ Preferences preferences;
 
 // Bluetooth собирается не во всех вариантах: полный BLE-стек (контроллер + NimBLE)
 // не влезает в 1280 КБ — старую разметку флеша, с которой приходят устройства,
-// выпущенные до DED CORE V4. См. platformio-legacy.ini и docs/ded-core-migration.md.
+// выпущенные до DED CORE V4. См. env esp32dev_legacy в platformio.ini и docs/ded-core-migration.md.
 #ifndef DED_CORE_NO_BLE
 #include "core/ble/BLE_SERVER.h"
 #endif

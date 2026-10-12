@@ -23,7 +23,7 @@
 **Версия документа:** 1.0  
 **Последнее обновление:** 2024  
 **Целевая система:** DED_CORE_V4 Ядро системы зажигания  
-**Область:** Только ядро системы зажигания (WEB_SERVER.h исключен)
+**Область:** Только ядро системы зажигания (сетевой слой — в docs/api/README.md и docs/technical/ota-guide.md)
 
 ### 1.1 Engine RPM Calculation
 
@@ -38,17 +38,31 @@ RPM = 60000000 / timePerDegree
 - `60000000`: Conversion factor (60 seconds × 1,000,000 microseconds)
 
 **Noise Filtering Algorithm:**
-The system implements a percentage-based filter to reject noise:
+
+Фильтр сравнивает **периоды между импульсами**, а не обороты: он отбрасывает импульс,
+пришедший слишком рано (паразитное срабатывание датчика), и в этом случае оставляет
+прежнее значение RPM.
 
 ```cpp
-// Calculate percentage change from previous RPM
-int changePercent = abs((currentRPM - previousRPM) * 100 / previousRPM);
+// src/core/ignition/Sensors.h, handleRpm()
+int timePrePerDegree = oldRpmMicro - preOldRpmMicro;   // предыдущий период
+timePerDegree        = __micros - oldRpmMicro;         // текущий период
 
-// Filter if change exceeds threshold
-if (changePercent <= filter) {
-    RPM = currentRPM;
+int one_percent = timePrePerDegree / 100;
+int actual      = timePerDegree / one_percent;         // текущий период в % от предыдущего
+
+// RPM обновляется, если это первый импульс, если RPM ещё не набраны,
+// или если период не «схлопнулся» ниже порога filter — то есть импульс не лишний.
+if (RPM < 200 || actual > filter || preOldRpmMicro == 0) {
+    RPM = fix_micros / timePerDegree;
+    preOldRpmMicro = oldRpmMicro;
+    oldRpmMicro = __micros;
 }
 ```
+
+При типовом `filter = 30` условие `actual > filter` выполнено почти всегда (период
+обычно близок к 100 % предыдущего), поэтому фильтр срабатывает только на резком
+укорочении периода — то есть ловит лишние импульсы, а не «шумные» скачки оборотов.
 
 **Example Calculations:**
 
@@ -483,25 +497,24 @@ RPM →
        │              │
        ▼              ▼
   ┌─────────┐  ┌──────────────────┐
-  │ RPM =   │  │ Calculate change │
-  │ rawRPM  │  │ percent          │
-  └─────────┘  │ change = abs((raw │
-               │ - prev) * 100 /  │
-               │ prev)            │
+  │ RPM =   │  │ Период в % от    │
+  │ rawRPM  │  │ предыдущего:     │
+  └─────────┘  │ actual = t /     │
+               │ (prevPeriod/100) │
                └────────┬─────────┘
                         │
                         ▼
-               ┌──────────────────┐
-               │ change <= filter?│
-               └────────┬─────────┘
+        ┌────────────────────────────┐
+        │ RPM < 200 || actual > filter? │
+        └───────────────┬────────────┘
                         │
                Yes ─────┴───── No
                 │              │
                 ▼              ▼
-       ┌────────────────┐ ┌──────────┐
-       │ RPM = rawRPM   │ │ Ignore   │
-       │ prevRPM = rawRPM│ │ (noise)  │
-       └────────────────┘ └──────────┘
+       ┌────────────────┐ ┌──────────────────────┐
+       │ RPM = rawRPM   │ │ Импульс слишком ранний│
+       │ prev = raw     │ │ → RPM не меняем       │
+       └────────────────┘ └──────────────────────┘
 ```
 
 ---
@@ -563,63 +576,54 @@ RPM →
 
 ## 4. Extensible Code Points
 
-### 4.1 Adding New Ignition Map Type
+### 4.1 Добавление нового набора углов (пресета двигателя)
 
-**Location:** `src/core/ignition/carts/Angles_NewModel.h`
+**Где:** `src/core/ignition/carts/` — по файлу на набор, плюс правка `MOTO_CARTS.h`
+и обработчика `/type`.
 
-**Example Code:**
+Реально набор — это массив `float[3][22]`: три карты по 22 точки.
+
 ```cpp
-// Angles_NewModel.h
+// src/core/ignition/carts/Angles_NewModel.h
 #ifndef ANGLES_NEWMODEL_H
 #define ANGLES_NEWMODEL_H
 
-// 16-point ignition map for new engine model
-const int anglesArr_NewModel[16] = {
-    5,   // 0 RPM
-    8,   // 1000 RPM
-    12,  // 2000 RPM
-    18,  // 3000 RPM
-    25,  // 4000 RPM
-    32,  // 5000 RPM
-    38,  // 6000 RPM
-    42,  // 7000 RPM
-    45,  // 8000 RPM
-    47,  // 9000 RPM
-    48,  // 10000 RPM
-    47,  // 11000 RPM
-    45,  // 12000 RPM
-    42,  // 13000 RPM
-    38,  // 14000 RPM
-    35   // 15000 RPM
+float anglesArr_newmodel[][22] = {
+  { 5, 8, 12, 18, 25, 32, 38, 42, 45, 47, 48, 47, 45, 42, 38, 35, 32, 30, 28, 26, 24, 22 },
+  { 5, 8, 12, 18, 25, 32, 38, 42, 45, 47, 48, 47, 45, 42, 38, 35, 32, 30, 28, 26, 24, 22 },
+  { 5, 8, 12, 18, 25, 32, 38, 42, 45, 47, 48, 47, 45, 42, 38, 35, 32, 30, 28, 26, 24, 22 }
 };
 
-// Throttle adjustment values (percentage)
-const int angles_adjustmentArr_NewModel[16] = {
-    0, 0, 2, 4, 6, 8, 10, 12, 14, 15, 15, 14, 12, 10, 8, 6
-};
-
-#endif
+#endif // ANGLES_NEWMODEL_H
 ```
 
-**Integration in `MOTO_CARTS.h`:**
+Подключение и выбор:
+
 ```cpp
-// Add to existing includes
+// 1. src/core/ignition/carts/MOTO_CARTS.h — добавить include
 #include "Angles_NewModel.h"
 
-// Add to cart array
-const int* anglesArr[] = {
-    anglesArr_7pt,      // Cart 0
-    anglesArr_12pt,     // Cart 1
-    anglesArr_22pt,     // Cart 2
-    anglesArr_NewModel  // Cart 3 (new)
-};
-
-// Add RPM points in RPMs.h if needed
-const int rpmsArr_NewModel[16] = {
-    0, 1000, 2000, 3000, 4000, 5000, 6000, 7000,
-    8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000
-};
+// 2. src/servers/DEVICE_API_ROUTES.h, обработчик /type — добавить номер пресета.
+//    Номер общий для углов и оборотов: для углов он берётся из anglesArr_*, для RPM —
+//    из rpmsArr_* (в текущем коде: 1..6, где 4 — rpmsArr_4 + Angles_166FMM).
+else if (new_chart_type == 7)
+{
+  for (int i = 0; i < 22; i++)
+  {
+    anglesArr[0][i] = anglesArr_newmodel[0][i];
+    anglesArr[1][i] = anglesArr_newmodel[1][i];
+    anglesArr[2][i] = anglesArr_newmodel[2][i];
+  }
+}
 ```
+
+Что стоит проверить после добавления:
+
+- таблицу оборотов (`RPMs.h`: `rpmsArr_*`) — она выбирается тем же `new_chart_type`,
+  и её значения должны совпадать по смыслу с новыми углами;
+- блок, где пресет задаёт `Init_angle` (`switch (new_chart_type)` в том же обработчике);
+- сохранение в NVS: обработчик перезаписывает все точки карт в область `ded_box`,
+  поэтому пресет применяется сразу и переживает перезагрузку.
 
 ---
 
@@ -627,24 +631,20 @@ const int rpmsArr_NewModel[16] = {
 
 **Location:** `src/core/ignition/Sensors.h`, function `handleRpm()`
 
-**Current Algorithm (Percentage-based):**
+**Текущий алгоритм (по периодам, не по оборотам):**
 ```cpp
-void handleRpm() {
-    // ... time measurement ...
-    
-    int rawRPM = 60000000 / timePerDegree;
-    
-    if (firstRpm) {
-        RPM = rawRPM;
-        previousRPM = rawRPM;
-        firstRpm = false;
-    } else {
-        int changePercent = abs((rawRPM - previousRPM) * 100 / previousRPM);
-        if (changePercent <= filter) {
-            RPM = rawRPM;
-            previousRPM = rawRPM;
-        }
-    }
+// src/core/ignition/Sensors.h, handleRpm()
+int timePrePerDegree = oldRpmMicro - preOldRpmMicro;   // предыдущий период между импульсами
+timePerDegree        = __micros - oldRpmMicro;         // текущий период
+
+int one_percent = timePrePerDegree / 100;
+int actual      = timePerDegree / one_percent;         // текущий период в % от предыдущего
+
+if (RPM < 200 || actual > filter || preOldRpmMicro == 0) {
+    RPM = fix_micros / timePerDegree;                  // fix_micros = 60000000
+    preOldRpmMicro = oldRpmMicro;
+    oldRpmMicro = __micros;
+    Modulator = datchikModulator;
 }
 ```
 
@@ -758,8 +758,8 @@ Advance_angle = expInterpolate(RPM, rpmsArr[i], rpmsArr[i+1],
 
 **Example 1: Temperature Sensor**
 ```cpp
-// Add to Config.h
-#define TEMP_PIN A3
+// Add to Config.h (ADC1 ESP32: свободны, например, GPIO 34 — только вход)
+#define TEMP_PIN 34
 int Termo = 0;  // Global variable
 
 // In handlePin()
@@ -789,7 +789,7 @@ Advance_angle = Advance_angle - tempCorrection;
 **Example 2: MAP (Manifold Absolute Pressure) Sensor**
 ```cpp
 // Add to Config.h
-#define MAP_PIN A4
+#define MAP_PIN 39   // ADC1_CH3, только вход
 int MAP = 0;  // Global variable (kPa)
 
 // In handlePin()
@@ -889,17 +889,16 @@ bool isQuickShifterActive() {
 
 **Current Algorithm (Two Types):**
 ```cpp
-if (SERVO) {
-    if (Servo_type == 0) {
-        // Map-based position
-        Servo_pos = map(RPM, 0, max_rpm, Servo_angles[0], Servo_angles[1]);
-    } else if (Servo_type == 1) {
-        // RPM-based on/off
-        if (RPM >= Servo_rpm) {
-            Servo_pos = Servo_percent;
-        } else {
-            Servo_pos = 0;
-        }
+// Позиции берутся не из пары min/max, а из карты servo_valueArr (22 точки на карту):
+if (Servo_type == 0) {
+    Servo_position = servo_valueArr[active_cart][i];   // интерполяция по точке карты
+} else if (Servo_type == 1) {
+    // вкл/выкл по порогу Servo_rpm, без интерполяции
+    if (RPM >= Servo_rpm) {
+        Servo_position = Servo_percent;
+    } else {
+        Servo_position = 0;
+    }
     }
 }
 ```
@@ -1137,12 +1136,12 @@ Advance_angle = max(Advance_angle, 0);
 
 **Example Configuration:**
 ```cpp
-#define ANGLE_ADVANCE true       // Use throttle correction
-#define QUICKSHIFTER true        // Enable QuickShifter
-#define HIGH_OUTPUT true         // Coil active HIGH
-#define INVERT_SENSOR false      // Normal sensor polarity
-#define INVERT_THROTTLE true     // Inverted throttle sensor
-#define SERVO true               // Enable servo
+int ANGLE_ADVANCE = 1;       // throttle correction (int in the code)
+int QUICKSHIFTER = 1;
+boolean HIGH_OUTPUT = true;
+boolean INVERT_SENSOR = false;
+boolean INVERT_THROTTLE = true;
+boolean SERVO = true;
 ```
 
 ---
@@ -1151,24 +1150,22 @@ Advance_angle = max(Advance_angle, 0);
 
 | Parameter | Type | Range | Description |
 |-----------|------|-------|-------------|
-| `Servo_type` | int | 0-3 | 0=map, 1=RPM on/off, 2=PID, 3=temp curve |
+| `Servo_type` | int | 0-1 | 0=map (`servo_valueArr`), 1=RPM on/off (`Servo_rpm`) |
 | `Servo_rpm` | int | 1000-15000 | RPM activation threshold (type 1) |
 | `Servo_percent` | int | 0-100 | Servo opening percentage (type 1) |
-| `Servo_angles[2]` | int[2] | 0-180 | Min/max angles for map (type 0) |
 
 **Example Configurations:**
 
-**Type 0 (Map-based):**
+**Type 0 (по карте):**
 ```cpp
-#define Servo_type 0
-#define Servo_angles {0, 90}  // 0° at idle, 90° at max RPM
+int Servo_type = 0;   // позиция на каждую точку карты задаётся в servo_valueArr
 ```
 
 **Type 1 (RPM on/off):**
 ```cpp
-#define Servo_type 1
-#define Servo_rpm 5000         // Open at 5000 RPM
-#define Servo_percent 50      // Open to 50%
+int Servo_type = 1;
+int Servo_rpm = 5000;      // открыть при 5000 RPM
+int Servo_percent = 50;    // открыть на 50%
 ```
 
 ---
@@ -1182,8 +1179,9 @@ Advance_angle = max(Advance_angle, 0);
 
 **Example Configuration:**
 ```cpp
-#define QS_time 60              // 60ms spark cut
-#define quickshifter_pin 15     // GPIO 15
+// QS_time не задаётся напрямую: он берётся из quick_adjustmentArr активной карты
+// (мс, значение по умолчанию 135). Контакт быстрого шифтера — GPIO 17.
+int QS_time = 135;
 ```
 
 ---
@@ -1192,13 +1190,15 @@ Advance_angle = max(Advance_angle, 0);
 
 | Parameter | Type | Range | Description |
 |-----------|------|-------|-------------|
-| `rpm_pin` | int | GPIO | TDC sensor input pin |
-| `throttle_pin` | int | GPIO/ADC | Throttle sensor ADC pin |
+| `sensor_pin` | int | GPIO | Датчик ВМТ (реально GPIO 16) |
+| `throttle_pin` | int | GPIO/ADC | Дроссель (реально GPIO 35, ADC1_CH7) |
 
 **Example Configuration:**
 ```cpp
-#define rpm_pin 2               // TDC sensor on GPIO 2
-#define throttle_pin A0         // Throttle on ADC0
+// Реальные контакты: PINS_DEF.h
+const int sensor_pin   = 16;   // датчик ВМТ
+const int throttle_pin = 35;   // дроссель (ADC1_CH7)
+const int out_pin      = 19;   // выход на коммутатор
 ```
 
 ---
@@ -1242,4 +1242,4 @@ Config.h                    # All configuration parameters
 **Document Version:** 1.0  
 **Last Updated:** 2024  
 **Target System:** DED_CORE_V4 Ignition Core  
-**Scope:** Core ignition system only (WEB_SERVER.h excluded)
+**Scope:** Core ignition system only (network layer — see docs/api/README.md)

@@ -12,8 +12,7 @@ DED_CORE_V4 - это система управления зажиганием д
 - **PROPS.h** - Объявления глобальных переменных (extern)
 - **PROPS_DEF.h** - Определения глобальных переменных
 - **PINS_DEF.h** - Определения пинов ESP32
-- **CONFIG.h** - Конфигурационные константы
-- **ARRAYS_DEF.h** - Массивы данных для разных типов карт
+- **CONFIG.h** - Чтение и запись настроек в NVS (`loadConfig`)
 
 #### 2. Инициализация системы (`core/init/`)
 - **SYSTEM_INIT.h** - Инициализация железа и задач
@@ -51,19 +50,36 @@ DED_CORE_V4 - это система управления зажиганием д
 - **QuickShifter.h** - Быстрое переключение передач
 
 #### 8. Задачи RTOS (`core/tasks/`)
-- **TASKS.h** - Общие объявления задач
-- **MotoTask.h** - Задача управления зажиганием
-- **ServerTask.h** - Задача веб-сервера
+- **TASKS.h** / **TASK_DECL.h** - Объявления задач
+- **ServerTask.h** - Задача веб-сервера (WiFi, HTTP, WebSocket, TLS, OTA, миграция)
 - **ControlTask.h** - Задача управления пинами
-- **AlarmTask.h** - Задача аварийной системы
+- **OtaTask.h** - Задача сетевого обновления (16 КБ стека под TLS)
+- **AlarmTask.h** - Задача аварийной системы (создаётся при включённом `SOUND`)
 
 #### 9. Сетевые серверы (`servers/`)
-- **WIFI_SERVER.h** - Управление WiFi точкой доступа
-- **WEB_SERVER.h** - HTTP сервер для веб-интерфейса
-- **WEB_SOCKET_SERVER.h** - WebSocket сервер для реального времени
-- **SERVER.h** - Общие функции серверов
+- **WIFI_SERVER.h** - Точка доступа, AP-DNS, режим восстановления, автообновление по WiFi
+- **WEB_SERVER_FUNCS.h** - `initServer()` и базовые маршруты (отдача фронта из SPIFFS)
+- **DEVICE_API_ROUTES.h** - HTTP API устройства на порту 80 (`/max`, `/servo`, `/update_card`, …)
+- **WEB_SOCKET_FUNCS.h** - WebSocket на порту 81: телеметрия и команды (ping/cart/servo_error)
+- **WEB_SERVER_CLEAN.h** / **WEB_SERVER_VARS.h** - объявления и объекты сервера
 
-#### 10. Вспомогательные функции (`functions/`)
+#### 10. Сеть, обновление и переход (`core/net/`, `core/ota/`, `core/migration/`, `core/provision/`, `core/ble/`)
+- **core/net/TLS_SERVER.{h,cpp}** - HTTPS/WSS на порту 443: отдача вшитого фронта, приём
+  сертификата, `/api/status`, `/api/tls`, `/api/provision`; имя `core.dedbox.pro` резолвит AP-DNS
+- **core/net/UPDATE_SERVER.h** - страница `/update` и приём образа: `POST /api/update`
+  (доступ из сети блока или по `X-Device-Key`)
+- **core/net/TLS_HTTP_ROUTES.h** - общие маршруты для HTTP и HTTPS
+- **core/net/SERVICE_CLIENT.h**, **TRUSTED_CA.h** - HTTPS-клиент к сервису с проверкой
+  сертификата (корни ISRG), часы по NTP
+- **core/ota/OTA_MANAGER.{h,cpp}**, **HYBRID_OTA.***, **ARDUINO_OTA.*** - проверка релиза,
+  скачивание и установка; ArduinoOTA выключен флагом `DED_CORE_NO_ARDUINO_OTA`
+- **core/migration/PARTITION_MIGRATION.h** - перевод флеша на новую разметку
+- **core/migration/LEGACY_CONFIG_IMPORT.h** - перенос настроек из `/config.json` заводской SPIFFS в NVS
+- **core/migration/MIGRATION_SERVER.h** - `/api/migration`, `/api/migrate`
+- **core/provision/PROVISION.h** - провижининг по проводу, **core/net/PAIRING.h** - код сопряжения
+- **core/ble/BLE_SERVER.h** - Bluetooth (NimBLE); не собирается с `DED_CORE_NO_BLE`
+
+#### 11. Вспомогательные функции (`functions/`)
 - **SOUND.h** - Управление звуковыми сигналами
 
 ## Поток выполнения программы
@@ -71,23 +87,28 @@ DED_CORE_V4 - это система управления зажиганием д
 ### 1. Инициализация (setup())
 ```
 1. Инициализация железа (initSystemHardware)
-   - Настройка Serial
-   - Конфигурация пинов
-   - Настройка GPIO pull-up/pull-down
+   - Serial 115200 (буфер приёма 4096 — под провижининг сертификата), монтирование SPIFFS
+   - Конфигурация пинов, pull-up на GPIO 33
 
 2. Проверка режима восстановления
-   - Если активирован → enterRecoveryMode()
+   - Кнопка на GPIO 33 прижата к земле → enterRecoveryMode() (`DED_RECOVERY`)
    - Иначе → нормальный запуск
 
 3. Нормальный запуск
-   - Инициализация Мото (initMoto)
-   - Инициализация предпочтений (initializePreferences)
-   - Настройка конфигурации (setupConfiguration)
-   - Запуск задач (initSystemTasks)
-   - Инициализация звука (initSystemSound)
+   - initMoto()
+   - initializePreferences() — служебная область NVS, при первом старте чистит её
+   - initializeMainPreferences() — область `ded_box`
+   - importLegacyConfigIfNeeded() — перенос настроек с заводской прошивки
+   - printPairCodeToSerial() — код сопряжения в Serial
+   - handleMigrationBootStep() — завершение перехода на новую разметку (перезагрузка)
+   - setupConfiguration() — чтение настроек из NVS
+   - initSystemTasks() — задачи сервера, управления, OTA (и аларма при SOUND)
+   - otaManager.begin() и initBleServer() (если BLE собран)
 
 4. Основной цикл (loop())
-   - Обработка Мото (handleMoto)
+   - handleMoto() — расчёт угла и искры
+   - handleSerialProvision() — провижининг по проводу
+   - handleBleTelemetry() — телеметрия и команды по Bluetooth
 ```
 
 ### 2. Задачи RTOS
@@ -108,6 +129,10 @@ TaskAlarmHandler (Приоритет 1, Ядро 0)
 - Мониторинг аварийных ситуаций
 - Обработка RPM аварий
 - Управление звуковой сигнализацией
+
+TaskOtaHandler (Приоритет 1, Ядро 0, стек 16 КБ)
+- Проверка релиза на сервисе по ключу устройства
+- Скачивание и установка образа, перезагрузка
 ```
 
 ## Взаимодействие компонентов
