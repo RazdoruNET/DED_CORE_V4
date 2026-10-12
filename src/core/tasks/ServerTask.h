@@ -7,10 +7,14 @@ void TaskServerCode(void * parameter) {
   initWifi();
   initWebSocket();
   initServer();
+  startTlsServer();
     
   for(;;){ 
     dnsServer.processNextRequest();
     handleServer();
+    handleTlsServer();
+    tlsHandleCertificateMaintenance();
+    maybeStartMigrationFromService();
     otaManager.handle();
   
     vTaskDelay(2);

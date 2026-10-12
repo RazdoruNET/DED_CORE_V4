@@ -55,3 +55,5 @@ docs/.doctrees/
 # Test results
 test_results/
 coverage/
+# PIO генерирует этот файл при сборке .ino — в репозиторий он не нужен
+src/DED_CORE_V4.ino.cpp

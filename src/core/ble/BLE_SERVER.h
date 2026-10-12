@@ -6,6 +6,7 @@
 #include <NimBLEDevice.h>
 #include <ArduinoJson.h>
 #include "core/ota/HYBRID_OTA.h"
+#include "core/net/PAIRING.h"
 #include "config/PROPS.h"
 
 extern Preferences preferences;
@@ -67,6 +68,24 @@ class DedCoreBleCommandCallbacks : public NimBLECharacteristicCallbacks {
         preferences.putInt("active_cart", active_cart);
         Serial.println("BLE cart set");
       }
+    } else if (root["event"] == "pair_info") {
+      // Приложение по Bluetooth узнаёт MAC и код, чтобы привязать блок к аккаунту:
+      // со страницы HTTPS приложение не может обратиться к блоку по обычному HTTP.
+      StaticJsonBuffer<256> replyBuffer;
+      JsonObject& reply = replyBuffer.createObject();
+      JsonObject& data = replyBuffer.createObject();
+
+      reply["event"] = "pair_info";
+      data["mac"] = WiFi.macAddress();
+      data["code"] = devicePairCode();
+      data["paired"] = otaManager.getDeviceKey().length() > 0;
+      reply["data"] = data;
+
+      String body = "";
+      reply.printTo(body);
+      bleTelemetry->setValue((uint8_t*)body.c_str(), body.length());
+      bleTelemetry->notify();
+      Serial.println("BLE pair info sent");
     }
   }
 };

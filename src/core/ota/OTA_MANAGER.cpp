@@ -1,10 +1,20 @@
 #include "OTA_MANAGER.h"
 #include <Preferences.h>
+#include <esp_ota_ops.h>
+#include "core/net/SERVICE_CLIENT.h"
+#include "core/net/PAIRING.h"
+
+// Размер слота приложения, на котором сейчас работает устройство. Сервис по нему
+// понимает, нужен ли переход на новую разметку флеша (заводской слот 1280 КБ).
+static uint32_t runningAppSlotSize() {
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    return running == nullptr ? 0 : running->size;
+}
 
 extern Preferences preferences;
 
 OTAManager::OTAManager() {
-    firmwareServerURL = "http://" + serverName + ":8000/api/firmware";
+    firmwareServerURL = SERVICE_BASE_URL;
     currentVersion = "0.0.1";
     jwtToken = "";
     lastCheckTime = 0;
@@ -70,6 +80,21 @@ bool OTAManager::parseFirmwareInfo(const String& json, FirmwareInfo& info) {
     }
     
     info.updateAvailable = root["updateAvailable"];
+
+    // Блок перехода на новую разметку (может прийти вместе с обычным ответом).
+    info.migrationRequired = false;
+    info.migrationUrl = "";
+    info.migrationMd5 = "";
+    info.migrationSize = 0;
+
+    JsonObject& migration = root["migration"];
+
+    if (migration.success() && migration["required"] == true) {
+        info.migrationRequired = true;
+        info.migrationUrl = migration["downloadUrl"].as<String>();
+        info.migrationMd5 = migration["md5"].as<String>();
+        info.migrationSize = migration["size"];
+    }
     
     if (info.updateAvailable) {
         info.version = root["version"].as<String>();
@@ -103,12 +128,20 @@ bool OTAManager::checkForUpdate() {
         return lastFirmwareInfo.updateAvailable;
     }
     
+    WiFiClientSecure secureClient;
+
+    if (!serviceClientSetup(secureClient)) {
+        // Без часов проверять сертификат сервера нечем — повторим позже.
+        return false;
+    }
+
     HTTPClient http;
     String url;
 
     if (deviceKey.length() > 0) {
         // Купленное устройство: доступ по ключу (X-Device-Key), без сессии.
-        url = firmwareServerURL + "/device/check?current=" + currentVersion + "&type=Kernel";
+        url = firmwareServerURL + "/device/check?current=" + currentVersion + "&type=Kernel" +
+              "&slot=" + String(runningAppSlotSize());
     } else {
         // Legacy: проверка по MAC проекта под пользовательским токеном.
         String macAddress = WiFi.macAddress();
@@ -120,11 +153,15 @@ bool OTAManager::checkForUpdate() {
     Serial.print("Checking for update: ");
     Serial.println(url);
 
-    http.begin(url);
+    http.begin(secureClient, url);
     http.setTimeout(OTA_TIMEOUT);
 
     if (deviceKey.length() > 0) {
         http.addHeader("X-Device-Key", deviceKey);
+        // Код сопряжения: сервис запомнит его хеш, и владелец сможет подтвердить,
+        // что привязывает именно этот блок. Заголовок, а не параметр в URL: адреса
+        // попадают в журналы, а код — секрет блока.
+        http.addHeader("X-Pair-Code", devicePairCode());
     } else if (jwtToken.length() > 0) {
         String authHeader = "Bearer " + jwtToken;
         http.addHeader("Authorization", authHeader);
@@ -176,16 +213,26 @@ void OTAManager::onProgress(size_t progress, size_t total) {
 }
 
 bool OTAManager::downloadAndInstall(const String& url) {
+    WiFiClientSecure secureClient;
+
+    if (!serviceClientSetup(secureClient)) {
+        return false;
+    }
+
     HTTPClient http;
     
     Serial.print("Downloading firmware from: ");
     Serial.println(url);
     
-    http.begin(url);
+    http.begin(secureClient, url);
     http.setTimeout(OTA_TIMEOUT);
     
     if (deviceKey.length() > 0) {
         http.addHeader("X-Device-Key", deviceKey);
+        // Код сопряжения: сервис запомнит его хеш, и владелец сможет подтвердить,
+        // что привязывает именно этот блок. Заголовок, а не параметр в URL: адреса
+        // попадают в журналы, а код — секрет блока.
+        http.addHeader("X-Pair-Code", devicePairCode());
     } else if (jwtToken.length() > 0) {
         String authHeader = "Bearer " + jwtToken;
         http.addHeader("Authorization", authHeader);
@@ -240,12 +287,32 @@ bool OTAManager::downloadAndInstall(const String& url) {
     return true;
 }
 
+bool OTAManager::isUpdating() {
+    return updateInProgress;
+}
+
+// Флаг занятости ставим и снимаем в одном месте: внутри много выходов по ошибке,
+// и снимать его на каждом легко забыть. Переход на новую разметку тоже пишет во флеш,
+// поэтому одновременно он выполняться не должен.
 bool OTAManager::performUpdate() {
     if (!initialized) {
         Serial.println("OTAManager not initialized");
         return false;
     }
-    
+
+    if (updateInProgress) {
+        Serial.println("Another flash operation is running");
+        return false;
+    }
+
+    updateInProgress = true;
+    bool result = performUpdateInternal();
+    updateInProgress = false;
+
+    return result;
+}
+
+bool OTAManager::performUpdateInternal() {
     if (!checkForUpdate()) {
         Serial.println("No update available");
         return false;
@@ -264,7 +331,14 @@ bool OTAManager::performUpdate() {
     Serial.println("Starting firmware update...");
     UPDATE_MODE = true;
     
-    bool success = downloadAndInstall(lastFirmwareInfo.url);
+    String downloadUrl = serviceAbsoluteUrl(lastFirmwareInfo.url);
+
+    if (downloadUrl.length() == 0) {
+        Serial.println("Update: service returned an unusable address");
+        return false;
+    }
+
+    bool success = downloadAndInstall(downloadUrl);
     
     if (success) {
         Serial.println("Update successful, rebooting...");

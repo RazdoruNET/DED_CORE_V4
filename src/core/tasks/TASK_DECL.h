@@ -5,3 +5,4 @@ void TaskMotoCode(void *pvParameters);
 void TaskServerCode(void *pvParameters);
 void TaskControlCode(void *pvParameters);
 void TaskAlarmCode(void *pvParameters);
+void TaskOtaCode(void *pvParameters);

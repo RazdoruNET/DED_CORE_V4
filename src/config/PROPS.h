@@ -10,6 +10,11 @@ uint8_t temprature_sens_read();
 
 uint8_t temprature_sens_read();
 
+// Версия прошивки (используется в веб-API и OTA).
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "4.0.0"
+#endif
+
 // Pin declarations - definitions in PINS_DEF.h
 extern const int sensor_pin;
 extern const int quickshifter_pin;
@@ -88,9 +93,9 @@ extern unsigned long WIFI_CHECK_INTERVAL_MS;
 // Array declarations
 extern float rpmsArr[3][22];
 extern float anglesArr[3][22];
-extern int angles_adjustmentArr[22][3];
-extern int quick_adjustmentArr[22][3];
-extern int servo_valueArr[22][3];
+extern int angles_adjustmentArr[3][22];
+extern int quick_adjustmentArr[3][22];
+extern int servo_valueArr[3][22];
 
 // Additional variables
 extern String serverName;

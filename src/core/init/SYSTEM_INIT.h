@@ -2,6 +2,7 @@
 #define SYSTEM_INIT_H
 
 #include <Arduino.h>
+#include <SPIFFS.h>
 #include "config/PROPS.h"
 #include "functions/SOUND.h"
 #include "core/ignition/Init.h"
@@ -11,10 +12,18 @@
 extern TaskHandle_t TaskServerHandler;
 extern TaskHandle_t TaskControlHandler;
 extern TaskHandle_t TaskAlarmHandler;
+extern TaskHandle_t TaskOtaHandler;
 
 void initSystemHardware() {
+  // Провижининг шлёт сертификат одной строкой (~3 КБ) — дефолтных 256 байт не хватит.
+  Serial.setRxBufferSize(4096);
   Serial.begin(115200);
   Serial.setDebugOutput(true);
+
+  // SPIFFS монтируем до всего остального: там встроенный фронт, сертификат TLS и настройки.
+  if (!SPIFFS.begin(true)) {
+    Serial.println("SPIFFS mount failed");
+  }
   
   pinMode(select_cart_down_pin, INPUT);   
   gpio_set_pull_mode(GPIO_NUM_33, GPIO_PULLUP_ONLY);
@@ -31,6 +40,8 @@ void initSystemSound() {
 void initSystemTasks() {
   xTaskCreatePinnedToCore(TaskServerCode,  "TaskServerHandler",  20000, NULL, 2, &TaskServerHandler,     0);
   xTaskCreatePinnedToCore(TaskControlCode, "TaskControlHandler", 1024, NULL, 1, &TaskControlHandler,     0);
+  // Стек под TLS-рукопожатие при обращении к сервису.
+  xTaskCreatePinnedToCore(TaskOtaCode,     "TaskOtaHandler",     16384, NULL, 1, &TaskOtaHandler,        0);
 
   if (SOUND == true) {
     pinMode(select_cart_up_pin, OUTPUT);  
