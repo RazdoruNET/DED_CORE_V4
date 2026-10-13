@@ -119,7 +119,7 @@ server->on("/max", HTTP_GET, [] (AsyncWebServerRequest *request)
        max_rpm_angle_kiker = angle;
 
        preferences.putInt("max_rpm",max_rpm);
-       preferences.putInt("max_rpm_ang_kiker",max_rpm_angle_kiker);
+       preferences.putInt("max_rpm_ang_k",max_rpm_angle_kiker);
     }
     
     request->send(200, "text/plain", "OK");
@@ -408,17 +408,17 @@ server->on("/wifi/auto", HTTP_GET, [] (AsyncWebServerRequest *request)
   {
     if (request->hasParam("ssid")) {
       WIFI_UPDATE_SSID = request->getParam("ssid")->value();
-      preferences.putString("WIFI_UPDATE_SSID", WIFI_UPDATE_SSID);
+      preferences.putString("wifi_ssid", WIFI_UPDATE_SSID);
     }
 
     if (request->hasParam("pass")) {
       WIFI_UPDATE_PASSWORD = request->getParam("pass")->value();
-      preferences.putString("WIFI_UPDATE_PASSWORD", WIFI_UPDATE_PASSWORD);
+      preferences.putString("wifi_pass", WIFI_UPDATE_PASSWORD);
     }
 
     if (request->hasParam("enabled")) {
       WIFI_AUTO_UPDATE_ENABLED = (request->getParam("enabled")->value().toInt() == 1);
-      preferences.putBool("WIFI_AUTO_UPDATE_ENABLED", WIFI_AUTO_UPDATE_ENABLED);
+      preferences.putBool("wifi_auto", WIFI_AUTO_UPDATE_ENABLED);
     }
 
     request->send(200, "application/json", "{\"enabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? "true" : "false") + ",\"ssid\":\"" + WIFI_UPDATE_SSID + "\",\"status\":\"" + WIFI_UPDATE_STATUS + "\",\"pass_set\":" + String(WIFI_UPDATE_PASSWORD.length() > 0 ? "true" : "false") + ",\"connected\":" + String(WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID ? "true" : "false") + ",\"last_check_time\":" + String(WIFI_LAST_CHECK_TIME) + ",\"last_attempt_time\":" + String(WIFI_LAST_ATTEMPT_TIME) + ",\"retry_interval_ms\":" + String(WIFI_RETRY_INTERVAL_MS) + ",\"next_allowed_check_ms\":" + String((WIFI_LAST_ATTEMPT_TIME==0)?0:((WIFI_LAST_ATTEMPT_TIME+WIFI_RETRY_INTERVAL_MS)-millis())) + "}");
@@ -529,11 +529,11 @@ server->on("/wifi/scan", HTTP_GET, [] (AsyncWebServerRequest *request) {
 server->on("/wifi/connect", HTTP_GET, [] (AsyncWebServerRequest *request) {
     if (request->hasParam("ssid")) {
       WIFI_UPDATE_SSID = request->getParam("ssid")->value();
-      preferences.putString("WIFI_UPDATE_SSID", WIFI_UPDATE_SSID);
+      preferences.putString("wifi_ssid", WIFI_UPDATE_SSID);
     }
     if (request->hasParam("pass")) {
       WIFI_UPDATE_PASSWORD = request->getParam("pass")->value();
-      preferences.putString("WIFI_UPDATE_PASSWORD", WIFI_UPDATE_PASSWORD);
+      preferences.putString("wifi_pass", WIFI_UPDATE_PASSWORD);
     }
 
     bool started = false;

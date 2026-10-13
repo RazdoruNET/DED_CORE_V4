@@ -78,9 +78,9 @@ void legacyImportGlobals(JsonObject &json) {
   // Домашняя сеть: в заводской прошивке это APSSID/APPSK, в DED CORE V4 — сеть для обновлений.
   String stationSsid = json["APSSID"].as<String>();
   if (stationSsid.length() > 0) {
-    preferences.putString("WIFI_UPDATE_SSID", stationSsid);
-    preferences.putString("WIFI_UPDATE_PASSWORD", json["APPSK"].as<String>());
-    preferences.putBool("WIFI_AUTO_UPDATE_ENABLED", true);
+    preferences.putString("wifi_ssid", stationSsid);
+    preferences.putString("wifi_pass", json["APPSK"].as<String>());
+    preferences.putBool("wifi_auto", true);
   }
 
   // Заводские таблицы — на 7 точек; столько же использует DED CORE V4 при type = 0.

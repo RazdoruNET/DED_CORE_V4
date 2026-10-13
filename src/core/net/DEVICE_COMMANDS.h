@@ -62,25 +62,25 @@ bool applyWifiSettings(const String &ssid, const String &pass, int enabled) {
 
   if (ssid.length() > 0 && ssid != WIFI_UPDATE_SSID) {
     WIFI_UPDATE_SSID = ssid;
-    preferences.putString("WIFI_UPDATE_SSID", WIFI_UPDATE_SSID);
+    preferences.putString("wifi_ssid", WIFI_UPDATE_SSID);
     changed = true;
   }
 
   if (pass.length() > 0) {
     WIFI_UPDATE_PASSWORD = pass;
-    preferences.putString("WIFI_UPDATE_PASSWORD", WIFI_UPDATE_PASSWORD);
+    preferences.putString("wifi_pass", WIFI_UPDATE_PASSWORD);
     changed = true;
   }
 
   if (enabled >= 0 && (enabled == 1) != WIFI_AUTO_UPDATE_ENABLED) {
     WIFI_AUTO_UPDATE_ENABLED = (enabled == 1);
-    preferences.putBool("WIFI_AUTO_UPDATE_ENABLED", WIFI_AUTO_UPDATE_ENABLED);
+    preferences.putBool("wifi_auto", WIFI_AUTO_UPDATE_ENABLED);
     changed = true;
   }
 
   if (changed) {
     WIFI_LAST_ATTEMPT_TIME = 0;
-    preferences.putULong("WIFI_LAST_ATTEMPT_TIME", 0);
+    preferences.putULong("wifi_attempt", 0);
     WIFI_UPDATE_STATUS = "idle";
 
     Serial.print("WiFi settings saved: ssid=");

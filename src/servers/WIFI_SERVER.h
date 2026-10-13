@@ -52,7 +52,7 @@ bool connectToConfiguredWifi() {
   }
 
   WIFI_LAST_ATTEMPT_TIME = millis();
-  preferences.putULong("WIFI_LAST_ATTEMPT_TIME", WIFI_LAST_ATTEMPT_TIME);
+  preferences.putULong("wifi_attempt", WIFI_LAST_ATTEMPT_TIME);
   WIFI_UPDATE_STATUS = "connecting";
 
   Serial.print("Connecting to configured WiFi: ");
@@ -106,7 +106,7 @@ void handleWifiAutoUpdate() {
   if (WiFi.status() == WL_CONNECTED) {
     if (WIFI_LAST_CHECK_TIME == 0 || (millis() - WIFI_LAST_CHECK_TIME) >= WIFI_CHECK_INTERVAL_MS) {
       WIFI_LAST_CHECK_TIME = millis();
-      preferences.putULong("WIFI_LAST_CHECK_TIME", WIFI_LAST_CHECK_TIME);
+      preferences.putULong("wifi_check", WIFI_LAST_CHECK_TIME);
       WIFI_UPDATE_STATUS = "checking_updates";
 
       bool updateAvailable = otaManager.checkForUpdate();
