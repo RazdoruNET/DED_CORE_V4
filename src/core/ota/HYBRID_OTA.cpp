@@ -51,6 +51,10 @@ String HybridOTAManager::getModeString() {
     }
 }
 
+bool HybridOTAManager::lastCheckAnswered() {
+    return httpOta.lastCheckAnswered();
+}
+
 bool HybridOTAManager::checkForUpdate() {
     if (!initialized || mode == OtaMode::OFF) {
         Serial.println("OTA disabled or not initialized");

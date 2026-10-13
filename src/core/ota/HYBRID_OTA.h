@@ -25,6 +25,10 @@ public:
     void setMode(OtaMode m);
     OtaMode getMode();
     bool checkForUpdate();
+
+    // Ответил ли сервис на последнюю проверку: неудачная попытка не должна откладывать
+    // следующую на полчаса.
+    bool lastCheckAnswered();
     bool performUpdate();
     void setJwtToken(const String& token);
     void setServerURL(const String& url);

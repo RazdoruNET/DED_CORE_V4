@@ -41,6 +41,7 @@ private:
     bool initialized;
     bool updateInProgress = false;
     FirmwareInfo lastFirmwareInfo;
+    bool checkAnswered = false;
     
     bool validateFirmware(uint32_t size, const String& md5, const String& sha256);
     bool performUpdateInternal();
@@ -53,6 +54,11 @@ public:
     OTAManager();
     void begin();
     bool checkForUpdate();
+
+    // Ответил ли сервис: false — запрос не дошёл (сеть, TLS, часы). По этому признаку
+    // решаем, запоминать ли время проверки: неудачная попытка не должна откладывать
+    // следующую на полчаса.
+    bool lastCheckAnswered() { return checkAnswered; }
     bool performUpdate();
 
     // Идёт запись образа во флеш: переход на новую разметку в это время не начинаем.

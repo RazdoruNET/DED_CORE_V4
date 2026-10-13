@@ -19,6 +19,9 @@ extern DNSServer dnsServer;
 #define DED_CORE_STARTUP_CONNECT_MS 12000
 #define DED_CORE_STARTUP_TIME_MS 15000
 
+// Сколько после включения блок не проверяет обновления в рабочем режиме.
+#define DED_CORE_UPDATE_SETTLE_MS 60000
+
 // AP-DNS: в офлайне у телефона нет доступа к публичному DNS, поэтому имя устройства
 // (core.dedbox.pro) резолвим сами на адрес точки доступа — иначе https:// откроется
 // с предупреждением или не откроется вовсе.
@@ -125,6 +128,22 @@ void handleWifiAutoUpdate() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
+    // Первую минуту после включения проверкой не занимаемся: обновление проверяется
+    // на старте (runStartupUpdateCheck), а одновременные рукопожатия TLS не влезают
+    // в память — из-за этого падал запуск веб-сервера.
+    if (millis() < DED_CORE_UPDATE_SETTLE_MS) {
+      return;
+    }
+
+    // Интервал считается по секундам эпохи: отметка переживает перезагрузку, поэтому
+    // после стартовой проверки проверка здесь не повторяется.
+    unsigned long nowEpoch = (unsigned long)time(nullptr);
+
+    if (WIFI_LAST_CHECK_EPOCH != 0 && nowEpoch >= WIFI_LAST_CHECK_EPOCH &&
+        (nowEpoch - WIFI_LAST_CHECK_EPOCH) < (WIFI_CHECK_INTERVAL_MS / 1000)) {
+      return;
+    }
+
     if (WIFI_LAST_CHECK_TIME == 0 || (millis() - WIFI_LAST_CHECK_TIME) >= WIFI_CHECK_INTERVAL_MS) {
       WIFI_LAST_CHECK_TIME = millis();
       WIFI_UPDATE_STATUS = "checking_updates";
@@ -159,7 +178,7 @@ void handleWifiAutoUpdate() {
 
       // Удачный ответ сервиса запоминаем в секундах эпохи: следующее включение блока
       // проверку не повторяет, пока не пройдёт интервал.
-      if (time(nullptr) >= (time_t)SERVICE_MIN_VALID_TIME) {
+      if (otaManager.lastCheckAnswered()) {
         WIFI_LAST_CHECK_EPOCH = (unsigned long)time(nullptr);
         preferences.putULong("wifi_check_at", WIFI_LAST_CHECK_EPOCH);
       }
@@ -256,8 +275,13 @@ void runStartupUpdateCheck() {
 
   enableCore0WDT();
 
-  WIFI_LAST_CHECK_EPOCH = (unsigned long)time(nullptr);
-  preferences.putULong("wifi_check_at", WIFI_LAST_CHECK_EPOCH);
+  if (otaManager.lastCheckAnswered()) {
+    WIFI_LAST_CHECK_EPOCH = (unsigned long)time(nullptr);
+    preferences.putULong("wifi_check_at", WIFI_LAST_CHECK_EPOCH);
+  } else {
+    // Ответа не было — вернёмся к проверке при следующем включении, а не через полчаса.
+    Serial.println("Startup: service did not answer, will check again on next boot");
+  }
 }
 
 void initRecoveryWifi() 
