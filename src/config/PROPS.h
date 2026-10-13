@@ -12,7 +12,7 @@ uint8_t temprature_sens_read();
 
 // Версия прошивки (используется в веб-API и OTA).
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "4.0.8"
+#define FIRMWARE_VERSION "4.0.10"
 #endif
 
 // Pin declarations - definitions in PINS_DEF.h
@@ -85,6 +85,9 @@ extern String WIFI_UPDATE_PASSWORD;
 extern unsigned long WIFI_LAST_CHECK_TIME;
 extern unsigned long WIFI_LAST_ATTEMPT_TIME;
 extern String WIFI_UPDATE_STATUS;
+// Время последней удачной проверки обновлений (секунды UNIX): millis() через
+// перезагрузку не переживает, а эпоха — да, поэтому интервал повторов считается по ней.
+extern unsigned long WIFI_LAST_CHECK_EPOCH;
 extern unsigned long WIFI_CONNECT_TIMEOUT_MS;
 extern unsigned long WIFI_RETRY_INTERVAL_MS;
 extern unsigned long WIFI_CHECK_INTERVAL_MS;
