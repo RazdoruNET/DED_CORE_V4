@@ -130,6 +130,7 @@ void loop() {
   handleMoto();
   handleSerialProvision();
 #ifndef DED_CORE_NO_BLE
+  handleBleCommands();
   handleBleTelemetry();
 #endif
 }
