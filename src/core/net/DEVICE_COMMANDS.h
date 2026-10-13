@@ -37,6 +37,10 @@ void sendDeviceFrame(const String &frame);
 bool releaseBleMemory();
 void restoreBleMemory();
 
+// Подключено ли сейчас приложение по Bluetooth: во время живой сессии память у него
+// не отбираем, иначе связь с владельцем пропадёт прямо во время работы.
+bool bleClientConnected();
+
 // Строку из JSON копируем сразу: буфер разбора живёт только до конца обработчика.
 String jsonString(JsonObject &data, const char *key) {
   const char *value = data[key];

@@ -145,6 +145,10 @@ static bool bleSuspended = false;
 
 void initBleServer();
 
+bool bleClientConnected() {
+  return bleConnected;
+}
+
 bool releaseBleMemory() {
   if (bleServer == nullptr) {
     return false;

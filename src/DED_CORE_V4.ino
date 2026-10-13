@@ -38,6 +38,7 @@ void handelWebSocketData();
 void handleServer();
 void handleWifiAutoUpdate();
 bool connectToConfiguredWifi();
+void runStartupUpdateCheck();
 
 #include "core/handlers/HANDLERS_FUNCS.h"
 #include "servers/WEB_SOCKET_FUNCS.h"
@@ -89,14 +90,19 @@ void setup()
     }
 
     setupConfiguration();
-    initSystemTasks();
-    
+
     // Initialize OTA manager
     OtaMode mode = static_cast<OtaMode>(OTA_MODE);
     otaManager.setMode(mode);
     otaManager.setJwtToken(OTA_JWT_TOKEN);
     otaManager.setArduinoOTAPassword(OTA_PASSWORD);
     otaManager.begin();
+
+    // Обновление проверяем до подъёма Bluetooth, точки доступа и веб-сервера: рукопожатию
+    // TLS нужен непрерывный участок памяти, и в этом месте загрузки он есть (servers/WIFI_SERVER.h).
+    runStartupUpdateCheck();
+
+    initSystemTasks();
 
 #ifndef DED_CORE_NO_BLE
     initBleServer();
