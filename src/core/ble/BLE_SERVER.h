@@ -30,6 +30,8 @@ static NimBLECharacteristic* bleTelemetry = nullptr;
 static volatile bool bleConnected = false;
 static unsigned long bleLastNotify = 0;
 static unsigned long bleLastWifiNotify = 0;
+// Что отправлять следующим кадром состояния: сеть или сведения о прошивке.
+static bool bleShowWifiState = true;
 
 class DedCoreBleServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* server) override {
@@ -215,6 +217,29 @@ void handleBleTelemetry() {
   }
   bleLastNotify = millis();
 
+  // Кадры чередуются: две нотификации подряд не проходят — контроллер не успевает
+  // отдать первую, и вторая теряется (приложение не видело состояние домашней сети).
+  if (millis() - bleLastWifiNotify >= DED_CORE_BLE_WIFI_MS) {
+    bleLastWifiNotify = millis();
+
+    // Два маленьких кадра по очереди: одним кадром состояние не уложить в предел
+    // уведомления, а без разделения приложение не видело состояние сети.
+    String stateBody;
+
+    if (bleShowWifiState) {
+      stateBody = "{\"event\":\"wifi_status\",\"data\":" + wifiStateJson() + "}";
+    } else {
+      stateBody = "{\"event\":\"device_info\",\"data\":" + deviceInfoJson() + "}";
+    }
+
+    bleShowWifiState = !bleShowWifiState;
+
+    bleTelemetry->setValue((uint8_t*)stateBody.c_str(), stateBody.length());
+    bleTelemetry->notify();
+
+    return;
+  }
+
   StaticJsonBuffer<256> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
   json["micros"] = (uint32_t)micros();
@@ -228,15 +253,6 @@ void handleBleTelemetry() {
 
   bleTelemetry->setValue((uint8_t*)body.c_str(), body.length());
   bleTelemetry->notify();
-
-  // Домашняя сеть и обновления: отдельный кадр, чтобы основной оставался коротким.
-  if (millis() - bleLastWifiNotify >= DED_CORE_BLE_WIFI_MS) {
-    bleLastWifiNotify = millis();
-
-    String wifiBody = "{\"event\":\"wifi_status\",\"data\":" + wifiStateJson() + "}";
-    bleTelemetry->setValue((uint8_t*)wifiBody.c_str(), wifiBody.length());
-    bleTelemetry->notify();
-  }
 }
 
 #endif // BLE_SERVER_H
