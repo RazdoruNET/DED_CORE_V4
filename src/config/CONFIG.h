@@ -39,9 +39,10 @@ boolean loadConfig() {
   WIFI_AUTO_UPDATE_ENABLED = preferences.getBool("wifi_auto", WIFI_AUTO_UPDATE_ENABLED);
   WIFI_UPDATE_SSID = preferences.getString("wifi_ssid", WIFI_UPDATE_SSID);
   WIFI_UPDATE_PASSWORD = preferences.getString("wifi_pass", WIFI_UPDATE_PASSWORD);
-  WIFI_LAST_CHECK_TIME = preferences.getULong("wifi_check", WIFI_LAST_CHECK_TIME);
-  WIFI_LAST_ATTEMPT_TIME = preferences.getULong("wifi_attempt", WIFI_LAST_ATTEMPT_TIME);
-  WIFI_UPDATE_STATUS = preferences.getString("wifi_status", WIFI_UPDATE_STATUS);
+  // Время попыток и состояние подключения в NVS не храним: millis() после перезагрузки
+  // начинается заново, и записанное значение нельзя сравнить с текущим. Из-за этого
+  // блок после каждой перезагрузки ждал десятиминутный интервал повторов, а не пробовал
+  // подключиться сразу. Состояние — величина текущего запуска, ему место в памяти.
   
   UPDATE_MODE = preferences.getBool("UPDATE_MODE",UPDATE_MODE);
   UPDATE_CORE = preferences.getBool("UPDATE_CORE",UPDATE_CORE);

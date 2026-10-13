@@ -140,6 +140,38 @@ void handleBleCommands() {
   }
 }
 
+// Bluetooth остановлен, чтобы отдать память под TLS.
+static bool bleSuspended = false;
+
+void initBleServer();
+
+bool releaseBleMemory() {
+  if (bleServer == nullptr) {
+    return false;
+  }
+
+  bleConnected = false;
+  NimBLEDevice::deinit(true);
+
+  bleServer = nullptr;
+  bleTelemetry = nullptr;
+  bleSuspended = true;
+
+  Serial.printf("BLE released for TLS: free=%u maxAlloc=%u\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+  return true;
+}
+
+void restoreBleMemory() {
+  if (!bleSuspended) {
+    return;
+  }
+
+  bleSuspended = false;
+  initBleServer();
+
+  Serial.printf("BLE restored: free=%u maxAlloc=%u\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+}
+
 void initBleServer() {
   NimBLEDevice::init(DED_CORE_BLE_NAME);
 
