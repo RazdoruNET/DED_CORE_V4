@@ -47,8 +47,12 @@ String jsonString(JsonObject &data, const char *key) {
   return value == nullptr ? String("") : String(value);
 }
 
-// Снимок подключения к домашней сети: имена полей совпадают с кадром телеметрии,
+// Снимок подключения к домашней сети. Имена полей совпадают с кадром телеметрии,
 // поэтому приложение разбирает его тем же кодом.
+//
+// Состояние отдаём двумя кадрами, а не одним: уведомление Bluetooth ограничено
+// согласованным MTU (255 → 252 байта), и один кадр со всеми полями выходил за предел
+// на длинном имени сети — приложение не видело состояние вовсе.
 String wifiStateJson() {
   bool connected = (WiFi.status() == WL_CONNECTED && WiFi.SSID() == WIFI_UPDATE_SSID);
 
@@ -57,7 +61,14 @@ String wifiStateJson() {
   json += "\"wifi_update_ssid\":\"" + WIFI_UPDATE_SSID + "\",";
   json += "\"wifi_update_status\":\"" + WIFI_UPDATE_STATUS + "\",";
   json += "\"wifi_password_set\":" + String(WIFI_UPDATE_PASSWORD.length() > 0 ? 1 : 0) + ",";
-  json += "\"wifi_connected\":" + String(connected ? 1 : 0) + ",";
+  json += "\"wifi_connected\":" + String(connected ? 1 : 0);
+  json += "}";
+  return json;
+}
+
+// Вторая половина: что предлагает сервис и что стоит на блоке.
+String deviceInfoJson() {
+  String json = "{";
   json += "\"ota_update_available\":" + String(otaManager.getLastFirmwareInfo().updateAvailable ? 1 : 0) + ",";
   json += "\"ota_last_version\":\"" + otaManager.getLastFirmwareInfo().version + "\",";
   json += "\"firmware_version\":\"" + String(FIRMWARE_VERSION) + "\"";

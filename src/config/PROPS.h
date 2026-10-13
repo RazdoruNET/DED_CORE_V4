@@ -12,7 +12,7 @@ uint8_t temprature_sens_read();
 
 // Версия прошивки (используется в веб-API и OTA).
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "4.0.11"
+#define FIRMWARE_VERSION "4.0.12"
 #endif
 
 // Pin declarations - definitions in PINS_DEF.h
