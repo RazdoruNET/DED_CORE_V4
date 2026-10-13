@@ -39,8 +39,9 @@ void initSystemSound() {
 void initSystemTasks() {
   xTaskCreatePinnedToCore(TaskServerCode,  "TaskServerHandler",  20000, NULL, 2, &TaskServerHandler,     0);
   xTaskCreatePinnedToCore(TaskControlCode, "TaskControlHandler", 1024, NULL, 1, &TaskControlHandler,     0);
-  // Стек под TLS-рукопожатие при обращении к сервису.
-  xTaskCreatePinnedToCore(TaskOtaCode,     "TaskOtaHandler",     16384, NULL, 1, &TaskOtaHandler,        0);
+  // Стек под TLS-рукопожатие при обращении к сервису (буферы mbedTLS и разбор
+  // сертификатов живут на стеке): 16 КБ не хватало, блок перезагружался на рукопожатии.
+  xTaskCreatePinnedToCore(TaskOtaCode,     "TaskOtaHandler",     24576, NULL, 1, &TaskOtaHandler,        0);
 
   if (SOUND == true) {
     pinMode(select_cart_up_pin, OUTPUT);  

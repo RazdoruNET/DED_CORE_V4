@@ -17,8 +17,10 @@
 
 extern Preferences preferences;
 extern HybridOTAManager otaManager;
+// Определения — в core/ignition/Variables.h; заголовок подключается и раньше него.
 extern int active_cart;
 extern int select_cart;
+extern int Servo_error;
 
 // Сколько сетей отдаём и как режем имя: кадр должен уложиться в одну BLE-нотификацию
 // (согласованный MTU 255 → 252 байта полезной нагрузки).
@@ -27,6 +29,13 @@ extern int select_cart;
 
 // Кадр в приложение по всем открытым каналам (WS 81, wss 443, Bluetooth).
 void sendDeviceFrame(const String &frame);
+
+// Рукопожатию TLS нужно около 33 КБ одним куском (буферы mbedTLS), а стек Bluetooth держит
+// десятки килобайт. Перед обращением к сервису эти вызовы отдают память Bluetooth и
+// возвращают её обратно (реализация — core/ble/BLE_SERVER.h, там же и сам стек).
+// true — Bluetooth остановлен и память освобождена.
+bool releaseBleMemory();
+void restoreBleMemory();
 
 // Строку из JSON копируем сразу: буфер разбора живёт только до конца обработчика.
 String jsonString(JsonObject &data, const char *key) {
@@ -79,8 +88,8 @@ bool applyWifiSettings(const String &ssid, const String &pass, int enabled) {
   }
 
   if (changed) {
+    // Новые настройки — новая попытка: не ждём интервал повторов.
     WIFI_LAST_ATTEMPT_TIME = 0;
-    preferences.putULong("wifi_attempt", 0);
     WIFI_UPDATE_STATUS = "idle";
 
     Serial.print("WiFi settings saved: ssid=");

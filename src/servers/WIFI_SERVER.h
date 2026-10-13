@@ -5,10 +5,14 @@
 #include <DNSServer.h>
 #include "config/PROPS.h"
 #include "core/ota/HYBRID_OTA.h"
+#include "core/net/DEVICE_COMMANDS.h"
 
 extern Preferences preferences;
 extern HybridOTAManager otaManager;
 extern DNSServer dnsServer;
+
+// Сколько памяти нужно рукопожатию TLS одним куском (буферы mbedTLS 16+16 КБ и запас).
+#define DED_CORE_TLS_BLOCK_NEEDED 40000
 
 // Forward declarations
 bool connectToConfiguredWifi();
@@ -32,6 +36,10 @@ void initWifi()
 
   initApDns();
 
+  Serial.printf("WiFi: auto=%d ssid='%s' pass=%d sta=%d\n",
+                WIFI_AUTO_UPDATE_ENABLED ? 1 : 0, WIFI_UPDATE_SSID.c_str(),
+                WIFI_UPDATE_PASSWORD.length() > 0 ? 1 : 0, (int)WiFi.status());
+
   if (WIFI_AUTO_UPDATE_ENABLED && WIFI_UPDATE_SSID.length() > 0) {
     connectToConfiguredWifi();
   }
@@ -52,7 +60,6 @@ bool connectToConfiguredWifi() {
   }
 
   WIFI_LAST_ATTEMPT_TIME = millis();
-  preferences.putULong("wifi_attempt", WIFI_LAST_ATTEMPT_TIME);
   WIFI_UPDATE_STATUS = "connecting";
 
   Serial.print("Connecting to configured WiFi: ");
@@ -95,6 +102,14 @@ bool connectToConfiguredWifi() {
 
 void handleWifiAutoUpdate() {
   if (!WIFI_AUTO_UPDATE_ENABLED || UPDATE_MODE || WIFI_UPDATE_SSID.length() == 0) {
+    static unsigned long lastReport = 0;
+
+    if (millis() - lastReport > 30000) {
+      lastReport = millis();
+      Serial.printf("Auto-update off: auto=%d mode=%d ssid='%s'\n",
+                    WIFI_AUTO_UPDATE_ENABLED ? 1 : 0, UPDATE_MODE ? 1 : 0, WIFI_UPDATE_SSID.c_str());
+    }
+
     return;
   }
 
@@ -106,15 +121,41 @@ void handleWifiAutoUpdate() {
   if (WiFi.status() == WL_CONNECTED) {
     if (WIFI_LAST_CHECK_TIME == 0 || (millis() - WIFI_LAST_CHECK_TIME) >= WIFI_CHECK_INTERVAL_MS) {
       WIFI_LAST_CHECK_TIME = millis();
-      preferences.putULong("wifi_check", WIFI_LAST_CHECK_TIME);
       WIFI_UPDATE_STATUS = "checking_updates";
 
+      // Буферам mbedTLS (33 КБ) нужен один непрерывный кусок памяти, и рядом с Bluetooth
+      // его может не найтись: тогда отдаём память Bluetooth на время запроса и поднимаем
+      // стек обратно. Обновление перезагружает блок, поэтому возвращать Bluetooth после
+      // скачивания не нужно.
+      bool bleReleased = false;
+
+      if (ESP.getMaxAllocHeap() < DED_CORE_TLS_BLOCK_NEEDED) {
+#ifndef DED_CORE_NO_BLE
+        bleReleased = releaseBleMemory();
+#endif
+      }
+
+      // Рукопожатие TLS считает криптографию несколько секунд подряд, не уступая
+      // процессор: сторожевой таймер ядра 0 (5 секунд) принимает это за зависание
+      // и перезагружает блок. На время запроса снимаем его с дежурства — у запроса
+      // свои таймауты, — и возвращаем сразу после.
+      disableCore0WDT();
+
       bool updateAvailable = otaManager.checkForUpdate();
+
       if (updateAvailable) {
         WIFI_UPDATE_STATUS = "update_available";
         otaManager.performUpdate();
       } else {
         WIFI_UPDATE_STATUS = "up_to_date";
+      }
+
+      enableCore0WDT();
+
+      if (bleReleased) {
+#ifndef DED_CORE_NO_BLE
+        restoreBleMemory();
+#endif
       }
     }
 

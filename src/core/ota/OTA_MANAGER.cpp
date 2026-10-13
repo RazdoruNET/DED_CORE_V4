@@ -162,6 +162,10 @@ bool OTAManager::checkForUpdate() {
     Serial.print("Checking for update: ");
     Serial.println(url);
 
+    // Рукопожатию TLS нужно около 32 КБ одним куском (буферы mbedTLS), поэтому при
+    // нехватке памяти важно видеть не только общий остаток, но и самый большой блок.
+    Serial.printf("Heap before check: free=%u maxAlloc=%u\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+
     http.begin(secureClient, url);
     http.setTimeout(OTA_TIMEOUT);
 
@@ -177,6 +181,8 @@ bool OTAManager::checkForUpdate() {
     }
     
     int httpCode = http.GET();
+
+    Serial.printf("Heap after check: free=%u maxAlloc=%u\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
     
     if (httpCode == HTTP_CODE_OK) {
         String payload = http.getString();
