@@ -45,65 +45,107 @@ class DedCoreBleServerCallbacks : public NimBLEServerCallbacks {
   }
 };
 
-// Команды: провижининг ключа и выбор карты — те же события, что в WebSocket.
+// Очередь команд Bluetooth.
+//
+// Обработчик записи GATT выполняется в задаче стека Bluetooth, а её стек небольшой:
+// запись в NVS с выводом в лог переполняла его (Guru Meditation, double exception —
+// падение в log_printfv). Поэтому в колбэке только копируем кадр в очередь, а разбирает
+// его loop() с обычным стеком — как и команды WebSocket.
+// Размер кадра = согласованный MTU (255) минус заголовок; очередь на четыре команды.
+#define DED_CORE_BLE_QUEUE_LEN 4
+#define DED_CORE_BLE_FRAME_MAX 256
+
+static QueueHandle_t bleCommandQueue = nullptr;
+
 class DedCoreBleCommandCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* characteristic) override {
     std::string value = characteristic->getValue();
-    if (value.length() == 0) {
+    if (value.length() == 0 || bleCommandQueue == nullptr) {
       return;
     }
 
+    char frame[DED_CORE_BLE_FRAME_MAX] = {0};
+    size_t length = value.length() < DED_CORE_BLE_FRAME_MAX - 1 ? value.length() : DED_CORE_BLE_FRAME_MAX - 1;
+    memcpy(frame, value.c_str(), length);
+
+    // Ждать нечего: если очередь полна, кадр уже неактуален.
+    xQueueSend(bleCommandQueue, frame, 0);
+  }
+};
+
+// Ответ на команду по Bluetooth: только уведомлением, канал запроса и есть канал ответа.
+void bleNotify(const String &body) {
+  if (!bleConnected || bleTelemetry == nullptr) {
+    return;
+  }
+
+  bleTelemetry->setValue((uint8_t*)body.c_str(), body.length());
+  bleTelemetry->notify();
+}
+
+String blePairInfoJson() {
+  // Приложение по Bluetooth узнаёт MAC и код, чтобы привязать блок к аккаунту:
+  // со страницы HTTPS приложение не может обратиться к блоку по обычному HTTP.
+  StaticJsonBuffer<256> replyBuffer;
+  JsonObject& reply = replyBuffer.createObject();
+  JsonObject& data = replyBuffer.createObject();
+
+  reply["event"] = "pair_info";
+  data["mac"] = WiFi.macAddress();
+  data["code"] = devicePairCode();
+  data["paired"] = otaManager.getDeviceKey().length() > 0;
+  reply["data"] = data;
+
+  String body = "";
+  reply.printTo(body);
+  return body;
+}
+
+// Вызывается из loop(): здесь обычный стек, места хватает и на разбор JSON, и на запись в NVS.
+void handleBleCommands() {
+  if (bleCommandQueue == nullptr) {
+    return;
+  }
+
+  char frame[DED_CORE_BLE_FRAME_MAX];
+
+  while (xQueueReceive(bleCommandQueue, frame, 0) == pdTRUE) {
+    String payload = String(frame);
+
+    // Провижининг ключа: остальное разбирает общий обработчик — тот же JSON приходит
+    // и по WebSocket, и по wss.
     StaticJsonBuffer<512> jsonBuffer;
-    JsonObject& root = jsonBuffer.parseObject(String(value.c_str()));
-    if (!root.success()) {
-      return;
-    }
+    JsonObject& root = jsonBuffer.parseObject(payload);
 
-    if (root["event"] == "provision") {
+    if (root.success() && root["event"] == "provision") {
       const char* key = root["data"]["key"];
       if (key != nullptr && strlen(key) > 0) {
         otaManager.setDeviceKey(String(key));
         Serial.println("BLE PROVISION ok");
       }
-    } else if (root["event"] == "cart") {
-      int cart = root["data"]["cart"];
-      if (cart > 0 && cart <= 3) {
-        active_cart = cart - 1;
-        select_cart = cart;
-        preferences.putInt("active_cart", active_cart);
-        Serial.println("BLE cart set");
-      }
-    } else if (root["event"] == "pair_info") {
-      // Приложение по Bluetooth узнаёт MAC и код, чтобы привязать блок к аккаунту:
-      // со страницы HTTPS приложение не может обратиться к блоку по обычному HTTP.
-      StaticJsonBuffer<256> replyBuffer;
-      JsonObject& reply = replyBuffer.createObject();
-      JsonObject& data = replyBuffer.createObject();
 
-      reply["event"] = "pair_info";
-      data["mac"] = WiFi.macAddress();
-      data["code"] = devicePairCode();
-      data["paired"] = otaManager.getDeviceKey().length() > 0;
-      reply["data"] = data;
+      continue;
+    }
 
-      String body = "";
-      reply.printTo(body);
-      bleTelemetry->setValue((uint8_t*)body.c_str(), body.length());
-      bleTelemetry->notify();
+    if (root.success() && root["event"] == "pair_info") {
+      bleNotify(blePairInfoJson());
       Serial.println("BLE pair info sent");
-    } else {
-      // WiFi, карты, ping — общий разбор: тот же JSON приходит и по WebSocket.
-      String reply = "";
-      if (handleDeviceCommand(String(value.c_str()), reply)) {
-        bleTelemetry->setValue((uint8_t*)reply.c_str(), reply.length());
-        bleTelemetry->notify();
-      }
+      continue;
+    }
+
+    String reply = "";
+    if (handleDeviceCommand(payload, reply)) {
+      bleNotify(reply);
     }
   }
-};
+}
 
 void initBleServer() {
   NimBLEDevice::init(DED_CORE_BLE_NAME);
+
+  if (bleCommandQueue == nullptr) {
+    bleCommandQueue = xQueueCreate(DED_CORE_BLE_QUEUE_LEN, DED_CORE_BLE_FRAME_MAX);
+  }
 
   bleServer = NimBLEDevice::createServer();
   bleServer->setCallbacks(new DedCoreBleServerCallbacks());
