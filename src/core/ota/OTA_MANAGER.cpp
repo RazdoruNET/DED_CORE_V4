@@ -180,6 +180,8 @@ bool OTAManager::checkForUpdate() {
         http.addHeader("Authorization", authHeader);
     }
     
+    checkAnswered = false;
+
     int httpCode = http.GET();
 
     Serial.printf("Heap after check: free=%u maxAlloc=%u\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
@@ -191,6 +193,7 @@ bool OTAManager::checkForUpdate() {
         
         if (parseFirmwareInfo(payload, lastFirmwareInfo)) {
             lastCheckTime = millis();
+            checkAnswered = true;
             http.end();
             return lastFirmwareInfo.updateAvailable;
         }
