@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include "core/ota/HYBRID_OTA.h"
 #include "core/net/TLS_SERVER.h"
+#include "core/net/DEVICE_COMMANDS.h"
 
 extern HybridOTAManager otaManager;
 
@@ -41,6 +42,18 @@ void handleSerialProvision() {
 
     otaManager.setDeviceKey(String(key));
     Serial.println("PROVISION ok");
+    return;
+  }
+
+  // Команды устройства по проводу: тот же протокол, что по Bluetooth. Мастеру это нужно,
+  // чтобы настроить или проверить блок без приложения (например, включить диагностику).
+  {
+    String out;
+
+    if (handleDeviceCommand(line, out) && out.length() > 0) {
+      Serial.println(out);
+    }
+
     return;
   }
 

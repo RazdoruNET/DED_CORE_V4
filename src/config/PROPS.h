@@ -10,9 +10,10 @@ uint8_t temprature_sens_read();
 
 uint8_t temprature_sens_read();
 
-// Версия прошивки (используется в веб-API и OTA).
+// Версия прошивки (используется в веб-API и OTA). 4.0.13 — команды карты зажигания
+// (map_point/map_set), которыми правит карту приложение.
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "4.0.12"
+#define FIRMWARE_VERSION "4.0.16"
 #endif
 
 // Pin declarations - definitions in PINS_DEF.h
@@ -80,6 +81,16 @@ extern String APPSK1;
 extern String APSSID;
 extern String APPSK;
 extern bool WIFI_AUTO_UPDATE_ENABLED;
+// Удалённая диагностика по WiFi: блок сам выходит на сервис, когда телефона рядом нет.
+// Режим включается на время и живёт без Bluetooth, точки доступа и веб-сервера — иначе
+// рукопожатию TLS не хватает непрерывного участка памяти.
+extern bool DIAGNOSTICS_WIFI_ENABLED;
+#define DIAGNOSTICS_SERVER_URL "https://dedbox.pro"
+#define DIAGNOSTICS_TICK_MS 3000
+#define DIAGNOSTICS_STATE_MS 15000
+#define DIAGNOSTICS_TIMEOUT_MS 12000
+// Дольше этого режим не живёт: иначе владелец останется без приложения.
+#define DIAGNOSTICS_MAX_MINUTES 30
 extern String WIFI_UPDATE_SSID;
 extern String WIFI_UPDATE_PASSWORD;
 extern unsigned long WIFI_LAST_CHECK_TIME;

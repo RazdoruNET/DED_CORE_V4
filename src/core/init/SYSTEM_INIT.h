@@ -36,7 +36,22 @@ void initSystemSound() {
   }
 }
 
+#include "core/net/DIAGNOSTICS_UPLINK.h"
+
+// Дескриптор задачи канала диагностики: определён в основном файле прошивки.
+extern TaskHandle_t TaskDiagHandler;
+
 void initSystemTasks() {
+  if (DIAGNOSTICS_WIFI_ENABLED) {
+    // Режим удалённой диагностики: ни веб-сервера, ни точки доступа — их буферы дробят
+    // память, а рукопожатию TLS нужен непрерывный участок около 33 КБ. Канал работает
+    // отдельной задачей со своим стеком: буферы mbedTLS живут на стеке вызывающего.
+    xTaskCreatePinnedToCore(TaskDiagnosticsCode, "TaskDiagHandler", 24576, NULL, 2, &TaskDiagHandler, 0);
+    xTaskCreatePinnedToCore(TaskControlCode,     "TaskControlHandler", 1024, NULL, 1, &TaskControlHandler, 0);
+
+    return;
+  }
+
   xTaskCreatePinnedToCore(TaskServerCode,  "TaskServerHandler",  20000, NULL, 2, &TaskServerHandler,     0);
   xTaskCreatePinnedToCore(TaskControlCode, "TaskControlHandler", 1024, NULL, 1, &TaskControlHandler,     0);
   // Стек под TLS-рукопожатие при обращении к сервису (буферы mbedTLS и разбор
