@@ -27,6 +27,10 @@ extern int Servo_error;
 #define WIFI_SCAN_MAX_NETWORKS 6
 #define WIFI_SCAN_SSID_MAX 24
 
+// Точек в карте зажигания: массивы в прошивке фиксированной длины, а рабочее число
+// точек зависит от типа двигателя (7 / 12 / 22, см. core/ignition/Ignition.h).
+#define MAP_POINTS_MAX 22
+
 // Кадр в приложение по всем открытым каналам (WS 81, wss 443, Bluetooth).
 void sendDeviceFrame(const String &frame);
 
@@ -72,6 +76,7 @@ String deviceInfoJson() {
   json += "\"ota_update_available\":" + String(otaManager.getLastFirmwareInfo().updateAvailable ? 1 : 0) + ",";
   json += "\"ota_last_version\":\"" + otaManager.getLastFirmwareInfo().version + "\",";
   json += "\"firmware_version\":\"" + String(FIRMWARE_VERSION) + "\"";
+  json += ",\"diag_wifi_enabled\":" + String(DIAGNOSTICS_WIFI_ENABLED ? 1 : 0);
   json += "}";
   return json;
 }
@@ -183,6 +188,53 @@ String buildWifiNetworksJson() {
   return json;
 }
 
+// Одна точка карты кадром: приложению она нужна, чтобы показать таблицу и дать её
+// править. Кадр держим в пределах BLE-нотификации (см. WIFI_SCAN_SSID_MAX выше).
+String mapPointJson(int cart, int point) {
+  int index = cart - 1;
+
+  String json = "{\"event\":\"map_point\",\"data\":{";
+  json += "\"cart\":" + String(cart) + ",";
+  json += "\"point\":" + String(point) + ",";
+  json += "\"rpm\":" + String(rpmsArr[index][point], 2) + ",";
+  json += "\"angle\":" + String(anglesArr[index][point], 2) + ",";
+  json += "\"aa\":" + String(angles_adjustmentArr[index][point]) + ",";
+  json += "\"qa\":" + String(quick_adjustmentArr[index][point]) + ",";
+  json += "\"servo\":" + String(servo_valueArr[index][point]);
+  json += "}}";
+
+  return json;
+}
+
+// Запись точки карты: тем же способом, что и HTTP-маршрут /update_card вшитой страницы
+// (core/servers/DEVICE_API_ROUTES.h), но для явно указанной карты и с записью в NVS.
+// Ключи обязаны совпадать с загрузкой в config/CONFIG.h — иначе правка не переживёт
+// перезагрузку.
+bool applyMapPoint(int cart, int point, float rpm, float angle, float angleAdjust, int quickAdjust, float servo) {
+  int index = cart - 1;
+
+  rpmsArr[index][point] = rpm;
+  anglesArr[index][point] = angle;
+  angles_adjustmentArr[index][point] = (int) angleAdjust;
+  quick_adjustmentArr[index][point] = quickAdjust;
+  servo_valueArr[index][point] = (int) servo;
+
+  String suffix = String(index) + "_" + String(point);
+
+  preferences.putInt(("rpm" + suffix).c_str(), (int) (rpm * 100));
+  preferences.putInt(("angles" + suffix).c_str(), (int) (angle * 100));
+  preferences.putInt(("aa" + suffix).c_str(), (int) (angleAdjust * 100));
+  preferences.putInt(("qa" + suffix).c_str(), (int) (quickAdjust * 100));
+  preferences.putInt(("servo" + suffix).c_str(), (int) servo);
+
+  Serial.print("map saved: cart ");
+  Serial.print(cart);
+  Serial.print(" point ");
+  Serial.println(point);
+
+  return true;
+}
+
 // Разбор команды. true — есть ответ: WebSocket отправляет строку запросившему клиенту,
 // Bluetooth — уведомлением.
 bool handleDeviceCommand(const String &dataStr, String &out) {
@@ -214,8 +266,70 @@ bool handleDeviceCommand(const String &dataStr, String &out) {
     return false;
   }
 
+  if (json["event"] == "diag") {
+    // Удалённая диагностика по WiFi. Режим включается с перезагрузкой: в нём блок не поднимает
+    // Bluetooth, точку доступа и веб-сервер, иначе рукопожатию TLS не хватает памяти.
+    int enabled = json["data"]["enabled"] | 0;
+
+    DIAGNOSTICS_WIFI_ENABLED = enabled != 0;
+    preferences.putBool("diag_en", DIAGNOSTICS_WIFI_ENABLED);
+    preferences.putULong("diag_at", DIAGNOSTICS_WIFI_ENABLED ? (unsigned long) time(nullptr) : 0);
+
+    Serial.print("diag_en ");
+    Serial.println(DIAGNOSTICS_WIFI_ENABLED ? 1 : 0);
+
+    out = "{\"event\":\"diag\",\"data\":{\"enabled\":" + String(DIAGNOSTICS_WIFI_ENABLED ? 1 : 0) +
+          ",\"reboot\":1}}";
+
+    // Режим меняет состав задач и стек: применяем его перезагрузкой в любом случае —
+    // и при включении, и при выключении (иначе Bluetooth не вернётся к приложению).
+    delay(1500);
+    ESP.restart();
+
+    return true;
+  }
+
   if (json["event"] == "ping") {
     out = "{\"event\":\"pong\"}";
+    return true;
+  }
+
+  // Карта зажигания: чтение одной точки. Таблицу приложение обходит по точкам — целиком
+  // она в кадр не влезает (22 точки × 5 чисел).
+  if (json["event"] == "map_point") {
+    int cart = json["data"]["cart"] | 1;
+    int point = json["data"]["point"] | 0;
+
+    if (cart < 1 || cart > 3 || point < 0 || point >= MAP_POINTS_MAX) {
+      out = "{\"event\":\"map_point\",\"data\":{\"error\":\"bad index\"}}";
+      return true;
+    }
+
+    out = mapPointJson(cart, point);
+    return true;
+  }
+
+  // Запись одной точки: углы в градусах, коррекции — как их ждёт зажигание.
+  if (json["event"] == "map_set") {
+    JsonObject &data = json["data"];
+    int cart = data["cart"] | 1;
+    int point = data["point"] | 0;
+
+    if (cart < 1 || cart > 3 || point < 0 || point >= MAP_POINTS_MAX) {
+      out = "{\"event\":\"map_set\",\"data\":{\"error\":\"bad index\"}}";
+      return true;
+    }
+
+    float rpm = data["rpm"] | rpmsArr[cart - 1][point];
+    float angle = data["angle"] | anglesArr[cart - 1][point];
+    float angleAdjust = data["aa"] | (float) angles_adjustmentArr[cart - 1][point];
+    int quickAdjust = data["qa"] | quick_adjustmentArr[cart - 1][point];
+    float servo = data["servo"] | (float) servo_valueArr[cart - 1][point];
+
+    applyMapPoint(cart, point, rpm, angle, angleAdjust, quickAdjust, servo);
+
+    out = "{\"event\":\"map_set\",\"data\":{\"cart\":" + String(cart)
+        + ",\"point\":" + String(point) + ",\"saved\":1}}";
     return true;
   }
 

@@ -18,6 +18,7 @@ Preferences preferences;
 #include "core/migration/PARTITION_MIGRATION.h"
 #include "core/net/TLS_SERVER.h"
 #include "core/net/PAIRING.h"
+#include "core/net/DIAGNOSTICS_UPLINK.h"
 #include "core/provision/PROVISION.h"
 
 // Bluetooth собирается не во всех вариантах: полный BLE-стек (контроллер + NimBLE)
@@ -56,6 +57,7 @@ TaskHandle_t TaskServerHandler;
 TaskHandle_t TaskControlHandler;
 TaskHandle_t TaskAlarmHandler;
 TaskHandle_t TaskOtaHandler;
+TaskHandle_t TaskDiagHandler;
 
 HybridOTAManager otaManager;
 
@@ -105,7 +107,11 @@ void setup()
     initSystemTasks();
 
 #ifndef DED_CORE_NO_BLE
-    initBleServer();
+    // В режиме диагностики Bluetooth не поднимаем: он забирает непрерывную память,
+    // которая нужна рукопожатию TLS с сервисом.
+    if (!DIAGNOSTICS_WIFI_ENABLED) {
+      initBleServer();
+    }
 #endif
   }
 
@@ -135,6 +141,7 @@ void sendDeviceFrame(const String &frame) {
 void loop() {
   handleMoto();
   handleSerialProvision();
+
 #ifndef DED_CORE_NO_BLE
   handleBleCommands();
   handleBleTelemetry();

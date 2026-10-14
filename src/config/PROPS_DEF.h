@@ -58,6 +58,7 @@ String APPSK1 = "162534Bnm123q";
 String APSSID = "";
 String APPSK = "";
 bool WIFI_AUTO_UPDATE_ENABLED = false;
+bool DIAGNOSTICS_WIFI_ENABLED = false;
 String WIFI_UPDATE_SSID = "";
 String WIFI_UPDATE_PASSWORD = "";
 unsigned long WIFI_LAST_CHECK_TIME = 0;

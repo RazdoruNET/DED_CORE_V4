@@ -37,6 +37,7 @@ boolean loadConfig() {
   APSSID = preferences.getString("APSSID",APSSID);
   APPSK = preferences.getString("APPSK",APPSK);
   WIFI_AUTO_UPDATE_ENABLED = preferences.getBool("wifi_auto", WIFI_AUTO_UPDATE_ENABLED);
+  DIAGNOSTICS_WIFI_ENABLED = preferences.getBool("diag_en", DIAGNOSTICS_WIFI_ENABLED);
   WIFI_UPDATE_SSID = preferences.getString("wifi_ssid", WIFI_UPDATE_SSID);
   WIFI_UPDATE_PASSWORD = preferences.getString("wifi_pass", WIFI_UPDATE_PASSWORD);
   // Время попыток подключения и состояние в NVS не храним: millis() после перезагрузки
