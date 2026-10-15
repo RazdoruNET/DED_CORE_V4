@@ -14,6 +14,9 @@
 #include <ArduinoJson.h>
 #include "config/PROPS.h"
 #include "core/ota/HYBRID_OTA.h"
+// Определение метки ротора: команда `mark_scan` живёт здесь, а перебор — в ignition/MARK_SCAN.h.
+// Заголовок идемпотентен, поэтому его же подключает core/ignition/MOTO.h.
+#include "core/ignition/MARK_SCAN.h"
 
 extern Preferences preferences;
 extern HybridOTAManager otaManager;
@@ -524,6 +527,26 @@ bool handleDeviceCommand(const String &dataStr, String &out) {
 
     out = "{\"event\":\"wifi\",\"data\":" + wifiStateJson() + "}";
     return true;
+  }
+
+  // Определение метки ротора: мотор крутит владелец, блок перебирает кандидатов и следит
+  // за оборотами (подробности — core/ignition/MARK_SCAN.h).
+  if (json["event"] == "mark_scan") {
+    String action = jsonString(json["data"], "action");
+
+    if (action == "start") {
+      markScanStart(jsonString(json["data"], "method"));
+    } else if (action == "stop") {
+      markScanStop("владелец остановил определение");
+    } else if (action == "apply" && markScanBest >= 0) {
+      markScanApply(markScanBest);
+      sendDeviceFrame(markScanJson());
+    } else {
+      // Без действия просто отдаём состояние: приложение узнаёт, идёт ли перебор сейчас.
+      sendDeviceFrame(markScanJson());
+    }
+
+    return false;
   }
 
   // Имя и пароль точки доступа блока: то же, что делает `/wifi` у вшитой страницы.

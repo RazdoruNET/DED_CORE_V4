@@ -6,6 +6,7 @@
 #include "Flash.h"
 #include "Sensors.h"
 #include "Ignition.h"
+#include "MARK_SCAN.h"
 #include "Utils.h"
 
 #endif // MOTO_H

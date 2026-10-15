@@ -2,6 +2,7 @@
 #define MOTO_CARTS_H
 
 #include "RPMs.h"
+#include "Angles_Stock250.h"
 #include "Angles_SmartCom.h"
 #include "Angles_YX125.h"
 #include "Angles_YX140.h"

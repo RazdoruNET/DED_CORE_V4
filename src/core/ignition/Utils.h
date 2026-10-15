@@ -13,7 +13,11 @@ void handleMoto()
 {
   handlePin();
   handleRpm();
+  // Перебор метки ротора идёт по оборотам: ему нужны свежие RPM и время оборота
+  handleMarkScan();
   handleAngle();
+  // Во время перебора метки опережение фиксируем после карты, иначе она его перепишет
+  markScanHoldAdvance();
   handleIgnition();
   handleFlash();
   //handleActiveCartSave();
