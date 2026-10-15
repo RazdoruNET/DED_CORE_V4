@@ -235,6 +235,191 @@ bool applyMapPoint(int cart, int point, float rpm, float angle, float angleAdjus
   return true;
 }
 
+// --- Настройки зажигания и сервопривода ---------------------------------------
+//
+// Те же настройки, что пишет вшитая страница блока по HTTP (servers/DEVICE_API_ROUTES.h):
+// `/max`, `/angle`, `/angle/advance`, `/modulator`, `/quickshifter`, `/sensor`,
+// `/throttle`, `/carts/switching`, `/servo`. Приложение шлёт патч — только те поля,
+// которые владелец поменял; пустой патч означает «прочитать».
+//
+// Чтение по команде нужно и потому, что короткий кадр показаний Bluetooth настроек не
+// несёт: без него раздел настроек на телефоне без сертификата остался бы пустым.
+//
+// Ключи NVS обязаны совпадать с загрузкой в config/CONFIG.h — настройка, записанная
+// другим ключом, жила бы до первой перезагрузки.
+
+// Границы значений: те же, что у полей вшитой страницы и ползунков карты в приложении.
+// Значение вне диапазона исказило бы зажигание, поэтому его молча подрезаем.
+#define SETTINGS_MAX_RPM_MIN 1000
+#define SETTINGS_MAX_RPM_MAX 20000
+#define SETTINGS_ANGLE_MIN 0
+#define SETTINGS_ANGLE_MAX 60
+// Продолжительность сигнала прошивка сравнивает с micros(), то есть это микросекунды.
+#define SETTINGS_FLASH_TIME_MIN 0
+#define SETTINGS_FLASH_TIME_MAX 20000
+#define SETTINGS_FILTER_MIN 0
+#define SETTINGS_FILTER_MAX 100
+#define SETTINGS_SERVO_RPM_MIN 0
+#define SETTINGS_SERVO_RPM_MAX 20000
+#define SETTINGS_SERVO_PERCENT_MIN 0
+#define SETTINGS_SERVO_PERCENT_MAX 255
+#define SETTINGS_SERVO_TYPE_MAX 1
+
+int clampSetting(int value, int low, int high) {
+  if (value < low) {
+    return low;
+  }
+
+  return value > high ? high : value;
+}
+
+// Флаг настройки: приложение шлёт 0/1, в памяти он лежит булевым.
+bool settingFlag(JsonVariant value) {
+  return value.as<int>() != 0;
+}
+
+// Патч настроек: меняем и запоминаем только те поля, что пришли в кадре.
+void applySettingsPatch(JsonObject &data) {
+  if (data.containsKey("max_rpm")) {
+    max_rpm = clampSetting(data["max_rpm"].as<int>(), SETTINGS_MAX_RPM_MIN, SETTINGS_MAX_RPM_MAX);
+    preferences.putInt("max_rpm", max_rpm);
+  }
+
+  if (data.containsKey("max_rpm_angle_kiker")) {
+    max_rpm_angle_kiker = clampSetting(data["max_rpm_angle_kiker"].as<int>(), SETTINGS_ANGLE_MIN, SETTINGS_ANGLE_MAX);
+    preferences.putInt("max_rpm_ang_k", max_rpm_angle_kiker);
+  }
+
+  if (data.containsKey("init_angle")) {
+    Init_angle = clampSetting(data["init_angle"].as<int>(), SETTINGS_ANGLE_MIN, SETTINGS_ANGLE_MAX);
+    preferences.putInt("Init_angle", Init_angle);
+  }
+
+  if (data.containsKey("init_flash_time")) {
+    Init_flash_time = clampSetting(data["init_flash_time"].as<int>(), SETTINGS_FLASH_TIME_MIN, SETTINGS_FLASH_TIME_MAX);
+    preferences.putInt("flash_time", Init_flash_time);
+  }
+
+  if (data.containsKey("filter_val")) {
+    filter = clampSetting(data["filter_val"].as<int>(), SETTINGS_FILTER_MIN, SETTINGS_FILTER_MAX);
+    preferences.putInt("filter", filter);
+  }
+
+  if (data.containsKey("aa")) {
+    ANGLE_ADVANCE = settingFlag(data["aa"]) ? 1 : 0;
+    preferences.putBool("ANGLE_ADV", ANGLE_ADVANCE != 0);
+  }
+
+  if (data.containsKey("qs")) {
+    QUICKSHIFTER = settingFlag(data["qs"]) ? 1 : 0;
+    preferences.putBool("QUICKSHIFT", QUICKSHIFTER != 0);
+  }
+
+  if (data.containsKey("cc")) {
+    CARTS_SWHITCHING = settingFlag(data["cc"]) ? 1 : 0;
+    preferences.putBool("CART_SWHITCH", CARTS_SWHITCHING != 0);
+  }
+
+  if (data.containsKey("high")) {
+    HIGH_OUTPUT = settingFlag(data["high"]);
+    preferences.putBool("HIGH_OUTPUT", HIGH_OUTPUT);
+  }
+
+  if (data.containsKey("invert_sensor")) {
+    INVERT_SENSOR = settingFlag(data["invert_sensor"]);
+    preferences.putBool("INVERT_SENS", INVERT_SENSOR);
+  }
+
+  if (data.containsKey("invert_throttle")) {
+    INVERT_THROTTLE = settingFlag(data["invert_throttle"]);
+    preferences.putBool("INVERT_THROT", INVERT_THROTTLE);
+  }
+
+  if (data.containsKey("servo")) {
+    SERVO = settingFlag(data["servo"]);
+    preferences.putBool("SERVO", SERVO);
+  }
+
+  if (data.containsKey("servo_type")) {
+    Servo_type = clampSetting(data["servo_type"].as<int>(), 0, SETTINGS_SERVO_TYPE_MAX);
+    preferences.putInt("servo_type", Servo_type);
+  }
+
+  if (data.containsKey("servo_rpm")) {
+    Servo_rpm = clampSetting(data["servo_rpm"].as<int>(), SETTINGS_SERVO_RPM_MIN, SETTINGS_SERVO_RPM_MAX);
+    preferences.putInt("servo_rpm", Servo_rpm);
+  }
+
+  if (data.containsKey("servo_percent")) {
+    Servo_percent = clampSetting(data["servo_percent"].as<int>(), SETTINGS_SERVO_PERCENT_MIN, SETTINGS_SERVO_PERCENT_MAX);
+    preferences.putInt("servo_perc", Servo_percent);
+  }
+}
+
+// --- Точка доступа блока и перезагрузка ----------------------------------------
+//
+// Имя и пароль точки доступа пишет вшитая страница маршрутом `/wifi`
+// (servers/DEVICE_API_ROUTES.h). Приложение умеет то же: владелец переименовывает блок
+// со телефона, не заходя на его страницу. Пустое поле означает «оставить как было».
+
+void applyApSettings(const String &ssid, const String &pass) {
+  if (ssid.length() > 0) {
+    APSSID1 = ssid;
+    preferences.putString("APSSID1", APSSID1);
+  }
+
+  if (pass.length() > 0) {
+    APPSK1 = pass;
+    preferences.putString("APPSK1", APPSK1);
+  }
+
+  Serial.print("AP name: ");
+  Serial.println(APSSID1);
+}
+
+// Пароль точки доступа в кадр не кладём: приложение показывает только то, что он задан.
+String apStateJson() {
+  String json = "{\"event\":\"ap\",\"data\":{";
+  json += "\"wsid\":\"" + APSSID1 + "\",";
+  json += "\"password_set\":" + String(APPSK1.length() > 0 ? 1 : 0);
+  json += "}}";
+
+  return json;
+}
+
+// Снимок настроек. Двумя кадрами, а не одним: уведомление Bluetooth ограничено
+// согласованным MTU (255 → 252 байта), и один кадр со всеми полями за предел выходит.
+String settingsCoreJson() {
+  String json = "{\"event\":\"settings\",\"data\":{";
+  json += "\"max_rpm\":" + String(max_rpm) + ",";
+  json += "\"max_rpm_angle_kiker\":" + String(max_rpm_angle_kiker) + ",";
+  json += "\"init_angle\":" + String(Init_angle) + ",";
+  json += "\"init_flash_time\":" + String(Init_flash_time) + ",";
+  json += "\"filter_val\":" + String(filter) + ",";
+  json += "\"type\":" + String(type);
+  json += "}}";
+
+  return json;
+}
+
+String settingsFlagsJson() {
+  String json = "{\"event\":\"settings_flags\",\"data\":{";
+  json += "\"aa\":" + String(ANGLE_ADVANCE ? 1 : 0) + ",";
+  json += "\"qs\":" + String(QUICKSHIFTER ? 1 : 0) + ",";
+  json += "\"cc\":" + String(CARTS_SWHITCHING ? 1 : 0) + ",";
+  json += "\"high\":" + String(HIGH_OUTPUT ? 1 : 0) + ",";
+  // Имена те же, что в кадре телеметрии: приложение разбирает оба кадра одним кодом.
+  json += "\"INVERT_SENSOR\":" + String(INVERT_SENSOR ? 1 : 0) + ",";
+  json += "\"INVERT_THROTTLE\":" + String(INVERT_THROTTLE ? 1 : 0) + ",";
+  json += "\"servo\":" + String(SERVO ? 1 : 0) + ",";
+  json += "\"servo_type\":" + String(Servo_type) + ",";
+  json += "\"servo_rpm\":" + String(Servo_rpm) + ",";
+  json += "\"servo_percent\":" + String(Servo_percent);
+  json += "}}";
+
+  return json;
+}
+
 // Разбор команды. true — есть ответ: WebSocket отправляет строку запросившему клиенту,
 // Bluetooth — уведомлением.
 bool handleDeviceCommand(const String &dataStr, String &out) {
@@ -339,6 +524,44 @@ bool handleDeviceCommand(const String &dataStr, String &out) {
 
     out = "{\"event\":\"wifi\",\"data\":" + wifiStateJson() + "}";
     return true;
+  }
+
+  // Имя и пароль точки доступа блока: то же, что делает `/wifi` у вшитой страницы.
+  if (json["event"] == "ap") {
+    JsonObject &data = json["data"];
+    applyApSettings(jsonString(data, "ssid"), jsonString(data, "pass"));
+
+    sendDeviceFrame(apStateJson());
+
+    return false;
+  }
+
+  // Перезагрузка блока: ответ уходит по всем каналам до restart(), иначе приложение
+  // не увидит подтверждения и будет ждать таймаут.
+  if (json["event"] == "reboot") {
+    sendDeviceFrame("{\"event\":\"reboot\",\"data\":{\"reboot\":1}}");
+
+    Serial.println("reboot by app");
+    delay(400);
+    ESP.restart();
+
+    return false;
+  }
+
+  // Настройки зажигания, сервопривода и датчиков: патч в `data`, ответ — снимок двумя
+  // кадрами по всем каналам (тот же приём, что у состояния домашней сети).
+  if (json["event"] == "settings") {
+    if (json.containsKey("data")) {
+      JsonObject &data = json["data"];
+      applySettingsPatch(data);
+    }
+
+    sendDeviceFrame(settingsCoreJson());
+    sendDeviceFrame(settingsFlagsJson());
+
+    Serial.println("settings applied");
+
+    return false;
   }
 
   if (json["event"] == "wifi_scan") {
