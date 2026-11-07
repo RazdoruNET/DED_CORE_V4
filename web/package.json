@@ -1,0 +1,23 @@
+{
+  "name": "ded-core-device-ui",
+  "version": "4.0.16",
+  "private": true,
+  "description": "Встроенный веб-интерфейс блока DED CORE V4 (LittleFS)",
+  "scripts": {
+    "build": "ng build --configuration production",
+    "start": "ng serve --configuration development"
+  },
+  "dependencies": {
+    "@angular/common": "20.3.34",
+    "@angular/compiler": "20.3.34",
+    "@angular/core": "20.3.34",
+    "@angular/platform-browser": "20.3.34",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "20.3.40",
+    "@angular/cli": "20.3.40",
+    "@angular/compiler-cli": "20.3.34",
+    "typescript": "~5.9.3"
+  }
+}

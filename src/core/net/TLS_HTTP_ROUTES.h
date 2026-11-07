@@ -25,6 +25,7 @@
 #include "core/ota/HYBRID_OTA.h"
 #include "core/net/TLS_SERVER.h"
 #include "core/net/PAIRING.h"
+#include "core/net/AI_GRANT.h"
 
 extern HybridOTAManager otaManager;
 
@@ -167,6 +168,53 @@ void registerTlsHttpRoutes(AsyncWebServer *server) {
       Serial.println("Pairing: device key stored");
 
       request->send(200, "application/json", "{\"result\":\"ok\"}");
+    });
+
+  // Подпись для чата «Люси»: nonce выдаёт сервис чата, блок подписывает его ключом.
+  // Тело: {"nonce":"<hex>"} — в ответ MAC и HMAC, сам ключ наружу не уходит.
+  server->on("/api/ai/grant", HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+      static String body;
+      static bool denied;
+
+      if (index == 0) {
+        body = "";
+        body.reserve(total + 1);
+        denied = total > 512 || !tlsHttpRequestAllowed(request);
+
+        if (denied) {
+          request->send(403, "application/json", "{\"result\":\"error\",\"error\":\"forbidden\"}");
+          return;
+        }
+      }
+
+      if (denied) {
+        return;
+      }
+
+      body.concat((const char *)data, len);
+
+      if (index + len < total) {
+        return;
+      }
+
+      StaticJsonBuffer<256> jsonBuffer;
+      JsonObject &json = jsonBuffer.parseObject(body);
+      body = "";
+
+      const char *nonce = json.success() ? json["nonce"].as<const char *>() : nullptr;
+      String signature;
+      String error = "nonce";
+
+      if (nonce == nullptr || !aiGrantSignature(String(nonce), signature, error)) {
+        String reply = "{\"result\":\"error\",\"error\":\"" + error + "\"}";
+        request->send(error == "not_paired" ? 409 : 400, "application/json", reply);
+        return;
+      }
+
+      String reply = "{\"result\":\"ok\",\"mac\":\"" + aiGrantMac() +
+                     "\",\"signature\":\"" + signature + "\"}";
+      request->send(200, "application/json", reply);
     });
 
   // Попытка забрать свежий сертификат у сервиса прямо сейчас (нужен интернет у блока).

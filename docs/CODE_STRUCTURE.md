@@ -225,8 +225,10 @@ void initRecoveryWifi() {
 ```cpp
 // WEB_SERVER_FUNCS.h
 void initServer() {
-  SPIFFS.begin(true);
-  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+  if (!initFileSystem()) {
+    return;
+  }
+  server.serveStatic("/", DEVICE_FS, "/").setDefaultFile("index.html");
 
   initServerRoutes();
   registerDeviceApiRoutes(&server);
@@ -238,7 +240,7 @@ void initServer() {
 }
 ```
 
-Маршруты статики проверяют наличие файла: если запрошенного файла в SPIFFS нет,
+Маршруты статики проверяют наличие файла: если запрошенного файла в файловой системе нет,
 запрос уходит следующему обработчику — на этом и держатся `/update` и `/api/*`.
 
 #### WEB_SOCKET_FUNCS.h (телеметрия и команды, порт 81)

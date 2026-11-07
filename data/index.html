@@ -1,13 +1,51 @@
 <!doctype html>
-<html lang="en" data-critters-container>
-<head>
-  <meta charset="utf-8">
-  <title>Ded</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-<style>html,body{height:100%}body{margin:0;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif,Helvetica Neue,sans-serif}app-root{display:flex;height:100%}</style><link rel="stylesheet" href="styles.12a49183d55ce514.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="styles.12a49183d55ce514.css"></noscript></head>
-<body>
-  <app-root></app-root>
-<script src="runtime.03d0faa9263f61a8.js" type="module"></script><script src="polyfills.a02f6efe75d896b1.js" type="module"></script><script src="main.8e64ddd00052cb68.js" type="module"></script></body>
+<html lang="ru" data-beasties-container>
+  <head>
+    <meta charset="utf-8">
+    <title>DED CORE V4</title>
+    <base href="/">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0e1014">
+    <meta name="color-scheme" content="dark">
+    <meta name="description" content="Встроенный интерфейс блока зажигания DED CORE V4">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23d21f3c'/%3E%3Cpath d='M9 8h6a8 8 0 0 1 0 16H9z' fill='%23fff'/%3E%3C/svg%3E">
+  <style>:root{color-scheme:dark;--bg:#0e1014;--panel:#161a20;--panel-2:#1b2027;--border:#2a2f38;--text:#e7e9ee;--muted:#8b929e;--accent:#d21f3c;--accent-soft:rgba(210, 31, 60, .12);--ok:#35c27a;--warn:#e8b339;--err:#ef5b6b;--radius:14px}*{box-sizing:border-box}html,body{margin:0;min-height:100%}body{background:radial-gradient(1200px 600px at 10% -10%,rgba(210,31,60,.08),transparent 60%),radial-gradient(900px 500px at 100% 0%,rgba(53,194,122,.05),transparent 55%),var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}ded-root{display:block;min-height:100vh}@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition-duration:.01ms!important;animation-duration:.01ms!important}}</style><link rel="stylesheet" href="styles-CKG3HX3A.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="styles-CKG3HX3A.css"></noscript></head>
+  <body>
+    <ded-root>
+      <div class="boot">
+        <strong>DED CORE V4</strong>
+        <p>Загружаю интерфейс…</p>
+        <p class="boot-hint" id="boot-hint">Если страница остаётся чёрной, обновите её с очисткой кеша.</p>
+      </div>
+    </ded-root>
+    <style>
+      .boot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 100vh;
+        padding: 24px;
+        text-align: center;
+        background: #0e1014;
+        color: #e7e9ee;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      .boot strong { font-size: 20px; letter-spacing: 0.04em; }
+      .boot p { margin: 0; color: #8b929e; font-size: 14px; max-width: 420px; line-height: 1.5; }
+      .boot-hint { font-size: 12px !important; }
+    </style>
+    <script>
+      setTimeout(function () {
+        var hint = document.getElementById('boot-hint');
+        if (hint) {
+          hint.textContent =
+            'Интерфейс не загрузился. Скорее всего, браузер держит старую страницу в кеше: ' +
+            'обновите её с очисткой кеша (Ctrl+Shift+R на компьютере, долгое нажатие «Обновить» на телефоне) ' +
+            'или откройте в приватном окне.';
+        }
+      }, 6000);
+    </script>
+  <script src="main-WX2PO6LH.js" type="module"></script></body>
 </html>

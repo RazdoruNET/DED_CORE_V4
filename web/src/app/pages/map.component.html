@@ -1,0 +1,167 @@
+<section class="page">
+  <div class="card toolbar">
+    <div class="toolbar-group">
+      <span class="toolbar-label">Карта</span>
+      <div class="segmented">
+        @for (item of [1, 2, 3]; track item) {
+          <button type="button" [class.is-active]="cart() === item" [disabled]="loading()" (click)="selectCart(item)">
+            {{ item }}
+          </button>
+        }
+      </div>
+      <span class="badge">{{ pointsLabel(count()) }}</span>
+      @if (dirty().length > 0) {
+        <span class="badge is-warn">изменено {{ dirty().length }}</span>
+      }
+    </div>
+
+    <div class="toolbar-group">
+      <button type="button" class="btn is-ghost" [disabled]="loading() || saving()" (click)="load()">
+        {{ loading() ? 'Читаю…' : 'Прочитать' }}
+      </button>
+      <button type="button" class="btn is-ghost" [disabled]="dirty().length === 0 || saving()" (click)="revert()">
+        Отменить
+      </button>
+      <button type="button" class="btn is-primary" [disabled]="dirty().length === 0 || saving() || loading()" (click)="save()">
+        {{ saving() ? 'Записываю…' : 'Записать изменения' }}
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="card progress-card">
+      <span>Читаю точки карты с блока… {{ progress() }}%</span>
+      <div class="bar"><i [style.width.%]="progress()"></i></div>
+    </div>
+  }
+
+  @if (error(); as message) {
+    <div class="card banner is-error">{{ message }}</div>
+  }
+
+  <div class="card">
+    <header class="card-head">
+      <h2>График карты</h2>
+      <div class="segmented is-small">
+        <button type="button" [class.is-active]="mode() === 'angle'" (click)="setMode('angle')">Углы</button>
+        <button type="button" [class.is-active]="mode() === 'servo'" (click)="setMode('servo')">Серво</button>
+      </div>
+    </header>
+
+    @if (points().length > 1) {
+      <ded-chart
+        [series]="chartSeries()"
+        [markerX]="markerRpm()"
+        [markerLabel]="'сейчас ' + (markerRpm() ?? 0) + ' об/мин'"
+        ariaLabel="График карты зажигания"
+      />
+    } @else {
+      <p class="empty">Прочитайте карту, чтобы увидеть график.</p>
+    }
+  </div>
+
+  <div class="card">
+    <header class="card-head">
+      <h2>Точки карты</h2>
+      <span class="muted">правка применяется к точке по кнопке «Записать изменения»</span>
+    </header>
+
+    @if (points().length > 0) {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Обороты</th>
+              <th>Угол, °</th>
+              <th>Коррекция, °</th>
+              <th>Квик, мс</th>
+              <th>Серво, %</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (point of points(); track point.point; let index = $index) {
+              <tr [class.is-active]="index === activeIndex()" [class.is-dirty]="dirtyAt(index)">
+                <td class="index">{{ index + 1 }}</td>
+                <td>
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    [value]="point.rpm"
+                    [disabled]="saving()"
+                    (change)="edit(index, 'rpm', $event)"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    step="0.5"
+                    [value]="point.angle"
+                    [disabled]="saving()"
+                    (change)="edit(index, 'angle', $event)"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    step="1"
+                    [value]="point.aa"
+                    [disabled]="saving()"
+                    (change)="edit(index, 'aa', $event)"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    step="1"
+                    [value]="point.qa"
+                    [disabled]="saving()"
+                    (change)="edit(index, 'qa', $event)"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    [value]="point.servo"
+                    [disabled]="saving()"
+                    (change)="edit(index, 'servo', $event)"
+                  />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else if (!loading()) {
+      <p class="empty">Точек нет: блок не отдал карту. Нажмите «Прочитать».</p>
+    }
+  </div>
+
+  <div class="card">
+    <header class="card-head">
+      <h2>Групповые настройки</h2>
+      <span class="muted">сдвиг углов выбранной группы</span>
+    </header>
+
+    <div class="groups">
+      @for (group of groupRanges(); track group.id) {
+        <div class="group">
+          <div class="group-head">
+            <strong>{{ group.label }}</strong>
+            <span>точки {{ group.from + 1 }}–{{ group.to + 1 }}</span>
+          </div>
+          <div class="group-actions">
+            <button type="button" class="btn is-ghost is-compact" [disabled]="saving()" (click)="adjustGroup(group.from, group.to, -1)">−1°</button>
+            <button type="button" class="btn is-ghost is-compact" [disabled]="saving()" (click)="adjustGroup(group.from, group.to, -0.5)">−0,5°</button>
+            <button type="button" class="btn is-ghost is-compact" [disabled]="saving()" (click)="adjustGroup(group.from, group.to, 0.5)">+0,5°</button>
+            <button type="button" class="btn is-ghost is-compact" [disabled]="saving()" (click)="adjustGroup(group.from, group.to, 1)">+1°</button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</section>
