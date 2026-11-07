@@ -1,0 +1,194 @@
+<section class="page">
+  <div class="card toolbar">
+    <div class="toolbar-group">
+      <span class="badge">{{ pointsLabel(currentPoints()) }} в активной карте</span>
+      @if (dirtyCount() > 0) {
+        <span class="badge is-warn">изменено {{ dirtyCount() }}</span>
+      }
+    </div>
+    <div class="toolbar-group">
+      <button type="button" class="btn is-ghost" [disabled]="saving()" (click)="refreshFromDevice()">Прочитать с блока</button>
+      <button type="button" class="btn is-ghost" [disabled]="dirtyCount() === 0 || saving()" (click)="reset()">Отменить</button>
+      <button type="button" class="btn is-primary" [disabled]="dirtyCount() === 0 || saving()" (click)="save()">
+        {{ saving() ? 'Записываю…' : 'Сохранить настройки' }}
+      </button>
+    </div>
+  </div>
+
+  @if (error(); as message) {
+    <div class="card banner is-error">{{ message }}</div>
+  }
+
+  @if (draft(); as d) {
+    <div class="settings-grid">
+      <div class="card">
+        <header class="card-head"><h2>Отсечка и угол</h2></header>
+        <div class="fields">
+          <label class="field">
+            <span>Обороты отсечки</span>
+            <input type="number" min="1000" max="20000" step="100" [value]="d.maxRpm" (change)="setNumber('maxRpm', $event, 1000, 20000)" />
+            <small>1000–20000 об/мин</small>
+          </label>
+          <label class="field">
+            <span>Угол падения на отсечке</span>
+            <input type="number" min="0" max="60" step="1" [value]="d.maxRpmAngleKicker" (change)="setNumber('maxRpmAngleKicker', $event, 0, 60)" />
+            <small>0–60°</small>
+          </label>
+          <label class="field">
+            <span>Начальный угол</span>
+            <input type="number" min="0" max="60" step="1" [value]="d.initAngle" (change)="setNumber('initAngle', $event, 0, 60)" />
+            <small>0–60°</small>
+          </label>
+          <div class="field">
+            <span>Коррекция по дросселю</span>
+            <button type="button" class="switch" [class.is-on]="d.angleAdvance" (click)="toggle('angleAdvance')">
+              <i></i><span>{{ d.angleAdvance ? 'включена' : 'выключена' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <header class="card-head"><h2>Датчики</h2></header>
+        <div class="fields">
+          <div class="field">
+            <span>Датчик коленвала</span>
+            <button type="button" class="switch" [class.is-on]="d.invertSensor" (click)="toggle('invertSensor')">
+              <i></i><span>{{ d.invertSensor ? 'инвертирован' : 'не инвертирован' }}</span>
+            </button>
+          </div>
+          <div class="field">
+            <span>Датчик дросселя</span>
+            <button type="button" class="switch" [class.is-on]="d.invertThrottle" (click)="toggle('invertThrottle')">
+              <i></i><span>{{ d.invertThrottle ? 'инвертирован' : 'не инвертирован' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <header class="card-head"><h2>Модулятор и выход</h2></header>
+        <div class="fields">
+          <label class="field">
+            <span>Фильтр сигнала</span>
+            <input type="number" min="0" max="100" step="1" [value]="d.filter" (change)="setNumber('filter', $event, 0, 100)" />
+            <small>0–100</small>
+          </label>
+          <label class="field">
+            <span>Длительность сигнала</span>
+            <input type="number" min="0" max="20000" step="100" [value]="d.initFlashTime" (change)="setNumber('initFlashTime', $event, 0, 20000)" />
+            <small>микросекунды</small>
+          </label>
+          <div class="field">
+            <span>Тип выходного сигнала</span>
+            <button type="button" class="switch" [class.is-on]="d.highOutput" (click)="toggle('highOutput')">
+              <i></i><span>{{ d.highOutput ? 'высокий уровень' : 'низкий уровень' }}</span>
+            </button>
+          </div>
+          <div class="field">
+            <span>Квикшифтер</span>
+            <button type="button" class="switch" [class.is-on]="d.quickShifter" (click)="toggle('quickShifter')">
+              <i></i><span>{{ d.quickShifter ? 'включён' : 'выключен' }}</span>
+            </button>
+          </div>
+          <div class="field">
+            <span>Переключение карт на ходу</span>
+            <button type="button" class="switch" [class.is-on]="d.cartsSwitching" (click)="toggle('cartsSwitching')">
+              <i></i><span>{{ d.cartsSwitching ? 'включено' : 'выключено' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <header class="card-head"><h2>Сервопривод</h2></header>
+        <div class="fields">
+          <div class="field">
+            <span>Сервомодуль</span>
+            <button type="button" class="switch" [class.is-on]="d.servo" (click)="toggle('servo')">
+              <i></i><span>{{ d.servo ? 'включён' : 'выключен' }}</span>
+            </button>
+          </div>
+          <label class="field">
+            <span>Тип</span>
+            <select [value]="d.servoType" (change)="setNumber('servoType', $event, 0, 1)">
+              <option value="0">0 — обычный</option>
+              <option value="1">1 — реверсивный</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Обороты срабатывания</span>
+            <input type="number" min="0" max="20000" step="100" [value]="d.servoRpm" (change)="setNumber('servoRpm', $event, 0, 20000)" />
+            <small>0–20000 об/мин</small>
+          </label>
+          <label class="field">
+            <span>Процент открытия</span>
+            <input type="number" min="0" max="255" step="1" [value]="d.servoPercent" (change)="setNumber('servoPercent', $event, 0, 255)" />
+            <small>0–255</small>
+          </label>
+          <div class="field">
+            <button type="button" class="btn is-ghost" (click)="resetServoError()">Сбросить ошибку серво</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <header class="card-head"><h2>Тип карты и шаблон</h2></header>
+        <div class="fields">
+          <div class="field">
+            <span>Количество точек</span>
+            <div class="segmented">
+              @for (type of [0, 1, 2]; track type) {
+                <button type="button" [class.is-active]="selectedType() === type" (click)="selectedType.set(type)">
+                  {{ type === 0 ? '7' : type === 1 ? '12' : '22' }}
+                </button>
+              }
+            </div>
+            <small>сейчас в блоке {{ pointsLabel(d.type === 0 ? 7 : d.type === 1 ? 12 : 22) }}</small>
+          </div>
+          <label class="field">
+            <span>Шаблон углов</span>
+            <select [value]="selectedPreset()" (change)="selectedPreset.set(+$any($event.target).value)">
+              @for (preset of presets; track preset.id) {
+                <option [value]="preset.id">{{ preset.label }}</option>
+              }
+            </select>
+          </label>
+          <p class="hint is-warn">
+            Пересоздание заменит углы всех трёх карт. Сначала сохраните нужные настройки, если они ещё не в блоке.
+          </p>
+          <div class="field">
+            <button type="button" class="btn is-danger" [disabled]="saving()" (click)="applyCartType()">Пересоздать карты</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <header class="card-head"><h2>Метка ротора</h2></header>
+        <div class="fields">
+          <label class="field">
+            <span>Чем запускаете мотор</span>
+            <select [value]="markMethod()" [disabled]="markBusy()" (change)="markMethod.set($any($event.target).value)">
+              <option value="kick">Кикстартером</option>
+              <option value="starter">Электростартером</option>
+              <option value="both">И так, и так</option>
+            </select>
+          </label>
+          <div class="field">
+            <span>Состояние</span>
+            <strong class="status-line">{{ markStatus() }}</strong>
+            @if (markScan(); as scan) {
+              <small>обороты {{ scan.rpm }}, поймано {{ scan.caught }}°, лучший {{ scan.best }}°</small>
+            }
+          </div>
+          <div class="mark-actions">
+            <button type="button" class="btn is-primary" [disabled]="markBusy()" (click)="startMarkScan()">Начать определение</button>
+            <button type="button" class="btn is-ghost" [disabled]="!markBusy()" (click)="stopMarkScan()">Остановить</button>
+            <button type="button" class="btn is-ghost" [disabled]="!markDone()" (click)="applyMarkScan()">Применить найденный угол</button>
+          </div>
+          <p class="hint">Крутите мотор выбранным способом: блок перебирает углы и следит за оборотами сам.</p>
+        </div>
+      </div>
+    </div>
+  }
+</section>

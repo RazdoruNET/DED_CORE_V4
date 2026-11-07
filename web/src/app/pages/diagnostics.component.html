@@ -1,0 +1,111 @@
+<section class="page">
+  @if (error(); as message) {
+    <div class="card banner is-error">{{ message }}</div>
+  }
+
+  <div class="card">
+    <header class="card-head">
+      <h2>Канал и состояние</h2>
+      <button type="button" class="btn is-ghost is-compact" (click)="refresh()">Обновить</button>
+    </header>
+
+    <div class="diag-grid">
+      <div class="status-item">
+        <span class="status-label">WebSocket</span>
+        <span class="status-value" [class.is-ok]="device.online()" [class.is-warn]="!device.online()">{{ wsLabel() }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Адрес</span>
+        <span class="status-value">{{ hostLabel() }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Протокол</span>
+        <span class="status-value">{{ protocolLabel() }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Прошивка</span>
+        <span class="status-value">{{ device.firmwareVersion() }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Время работы</span>
+        <span class="status-value">{{ uptime() }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Активная карта</span>
+        <span class="status-value">{{ (device.telemetry()?.card ?? 0) + 1 }} из 3</span>
+      </div>
+    </div>
+
+    @if (device.sysStatus(); as sys) {
+      <div class="diag-grid">
+        <div class="status-item">
+          <span class="status-label">Режим Wi-Fi</span>
+          <span class="status-value">{{ sys.wifi.mode }}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Точка доступа</span>
+          <span class="status-value">{{ sys.wifi.ap_ssid }}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Домашняя сеть</span>
+          <span class="status-value">{{ sys.wifi.sta_connected ? sys.wifi.sta_ssid : 'не подключена' }}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">OTA</span>
+          <span class="status-value">{{ sys.ota.mode }}, {{ sys.ota.updateAvailable ? 'есть обновление' : 'обновлений нет' }}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Двигатель</span>
+          <span class="status-value">{{ sys.motor.motor_running ? 'работает' : 'стоит' }}, {{ sys.motor.rpm }} об/мин</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Дроссель</span>
+          <span class="status-value">{{ sys.motor.throttle }}%</span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="card">
+    <header class="card-head">
+      <h2>Служебные действия</h2>
+    </header>
+
+    <div class="actions">
+      <button type="button" class="btn is-ghost" [disabled]="rebootBusy()" (click)="reboot()">
+        {{ rebootBusy() ? 'Перезагружаю…' : 'Перезагрузить блок' }}
+      </button>
+
+      <button type="button" class="btn" [class.is-danger]="!diagEnabled()" [class.is-ghost]="diagEnabled()" [disabled]="diagBusy()" (click)="toggleDiagnostics()">
+        {{ diagBusy() ? 'Применяю…' : diagEnabled() ? 'Выключить диагностику' : 'Включить удалённую диагностику' }}
+      </button>
+    </div>
+
+    <p class="hint">
+      Режим диагностики нужен, когда блок стоит без телефона: он сам выходит на сервис. На время режима точка доступа,
+      веб-страница и Bluetooth не работают — блок вернётся к обычной работе после перезагрузки или через 30 минут.
+    </p>
+  </div>
+
+  <div class="card">
+    <header class="card-head">
+      <h2>Ответы API</h2>
+      <span class="muted">/api/status и /status</span>
+    </header>
+
+    <details>
+      <summary>/api/status</summary>
+      <pre>{{ statusJson() }}</pre>
+    </details>
+
+    <details>
+      <summary>/status</summary>
+      <pre>{{ sysStatusJson() }}</pre>
+    </details>
+
+    <details>
+      <summary>Кадр телеметрии</summary>
+      <pre>{{ telemetryJson() }}</pre>
+    </details>
+  </div>
+</section>

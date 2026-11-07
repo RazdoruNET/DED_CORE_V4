@@ -1,0 +1,66 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "ded-device": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "ded",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
+            "styles": ["src/styles.css"],
+            "outputPath": {
+              "base": "dist/ded-device",
+              "browser": ""
+            },
+            "polyfills": [],
+            "extractLicenses": true,
+            "optimization": {
+              "scripts": true,
+              "styles": true,
+              "fonts": false
+            },
+            "sourceMap": false
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "300kB",
+                  "maximumError": "600kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "outputHashing": "all"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "ded-device:build:production"
+            },
+            "development": {
+              "buildTarget": "ded-device:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    }
+  }
+}

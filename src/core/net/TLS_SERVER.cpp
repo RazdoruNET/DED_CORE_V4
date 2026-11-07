@@ -23,6 +23,7 @@
 #include "config/PROPS.h"
 #include "core/ota/HYBRID_OTA.h"
 #include "core/net/TLS_SERVER.h"
+#include "core/net/AI_GRANT.h"
 #include "core/net/SERVICE_CLIENT.h"
 
 // Общий протокол с WS на 81 — определения в WEB_SOCKET_FUNCS.h (в этой единице трансляции их нет).
@@ -164,8 +165,9 @@ esp_err_t tlsStaticHandler(httpd_req_t *req) {
   }
 
   httpd_resp_set_type(req, tlsMimeType(path));
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 
-  // Файлы фронта крупные (main.js ~850 КБ) — отдаём потоком, не поднимая в RAM целиком.
+  // Фронт отдаём потоком, не поднимая файл целиком в RAM.
   char chunk[1024];
   size_t readBytes = 0;
   while ((readBytes = file.read((uint8_t *)chunk, sizeof(chunk))) > 0) {
@@ -333,7 +335,7 @@ esp_err_t tlsCertUploadHandler(httpd_req_t *req) {
 }
 
 esp_err_t tlsStatusHandler(httpd_req_t *req) {
-  StaticJsonBuffer<512> jsonBuffer;
+  StaticJsonBuffer<640> jsonBuffer;
   JsonObject &json = jsonBuffer.createObject();
 
   json["host"] = DED_CORE_TLS_HOST;
@@ -346,12 +348,57 @@ esp_err_t tlsStatusHandler(httpd_req_t *req) {
   json["active_cart"] = active_cart;
   json["rpm"] = RPM;
   json["wifi_update_status"] = WIFI_UPDATE_STATUS;
+  // MAC и признак привязки нужны вкладке «Люси»: по MAC сервис чата выдаёт nonce.
+  // Код сопряжения по HTTPS не отдаём — это секрет, по нему блок привязывают.
+  json["mac"] = aiGrantMac();
+  json["paired"] = otaManager.getDeviceKey().length() > 0;
 
   String body = "";
   json.printTo(body);
 
   httpd_resp_set_type(req, "application/json");
   return httpd_resp_send(req, body.c_str(), HTTPD_RESP_USE_STRLEN);
+}
+
+// Подпись nonce для чата «Люси» на странице, открытой по HTTPS. Тело: {"nonce":"<hex>"}.
+esp_err_t tlsAiGrantHandler(httpd_req_t *req) {
+  if (req->content_len <= 0 || req->content_len > 512) {
+    return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "bad body size");
+  }
+
+  String body;
+  body.reserve(req->content_len + 1);
+
+  int remaining = req->content_len;
+  char buffer[256];
+  while (remaining > 0) {
+    int chunk = remaining > (int)sizeof(buffer) ? sizeof(buffer) : remaining;
+    int received = httpd_req_recv(req, buffer, chunk);
+    if (received <= 0) {
+      return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "body read failed");
+    }
+
+    body.concat(buffer, received);
+    remaining -= received;
+  }
+
+  StaticJsonBuffer<256> jsonBuffer;
+  JsonObject &json = jsonBuffer.parseObject(body);
+
+  const char *nonce = json.success() ? json["nonce"].as<const char *>() : nullptr;
+  String signature;
+  String error = "nonce";
+
+  if (nonce == nullptr || !aiGrantSignature(String(nonce), signature, error)) {
+    httpd_resp_set_status(req, error == "not_paired" ? "409 Conflict" : "400 Bad Request");
+    return httpd_resp_send(req, error.c_str(), HTTPD_RESP_USE_STRLEN);
+  }
+
+  String reply = "{\"result\":\"ok\",\"mac\":\"" + aiGrantMac() +
+                 "\",\"signature\":\"" + signature + "\"}";
+
+  httpd_resp_set_type(req, "application/json");
+  return httpd_resp_send(req, reply.c_str(), HTTPD_RESP_USE_STRLEN);
 }
 
 // Часы нужны, чтобы понимать, истёк ли сертификат. Берём время из интернета, когда
@@ -585,6 +632,12 @@ bool startTlsServer() {
   certUri.method = HTTP_POST;
   certUri.handler = tlsCertUploadHandler;
   httpd_register_uri_handler(tlsServer, &certUri);
+
+  httpd_uri_t aiGrantUri = {};
+  aiGrantUri.uri = "/api/ai/grant";
+  aiGrantUri.method = HTTP_POST;
+  aiGrantUri.handler = tlsAiGrantHandler;
+  httpd_register_uri_handler(tlsServer, &aiGrantUri);
 
   httpd_uri_t staticUri = {};
   staticUri.uri = "/*";

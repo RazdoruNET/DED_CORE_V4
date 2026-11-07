@@ -1,0 +1,127 @@
+<section class="page">
+  <div class="card hero">
+    <div class="gauge-wrap">
+      <svg viewBox="0 0 200 130" role="img" aria-label="Обороты двигателя">
+        <path class="gauge-track" d="M20 110 A80 80 0 0 1 180 110" />
+        <path class="gauge-value" [attr.stroke-dasharray]="gaugeDash()" d="M20 110 A80 80 0 0 1 180 110" />
+        <text class="gauge-scale" x="20" y="126" text-anchor="middle">0</text>
+        <text class="gauge-scale" x="180" y="126" text-anchor="middle">{{ maxRpm() }}</text>
+      </svg>
+      <div class="gauge-readout">
+        <strong>{{ rpm() }}</strong>
+        <span>об/мин</span>
+      </div>
+    </div>
+
+    <div class="hero-info">
+      <div class="chips">
+        <span class="badge" [class.is-live]="motorRunning()"><i class="dot"></i>{{ motorLabel() }}</span>
+        <span class="badge">карта {{ cart() }}</span>
+        <span class="badge">{{ typeLabel() }}</span>
+        <span class="badge" [class.is-warn]="otaAvailable()">{{ otaLabel() }}</span>
+      </div>
+
+      <dl class="stats">
+        <div>
+          <dt>Отсечка</dt>
+          <dd>{{ maxRpm() }} <small>об/мин</small></dd>
+        </div>
+        <div>
+          <dt>Начальный угол</dt>
+          <dd>{{ device.telemetry()?.init_angle ?? 0 }}<small>°</small></dd>
+        </div>
+        <div>
+          <dt>Прошивка</dt>
+          <dd>{{ device.firmwareVersion() }}</dd>
+        </div>
+        <div>
+          <dt>Точка доступа</dt>
+          <dd>{{ apName() }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <article class="card metric">
+      <span class="metric-label">Дроссель</span>
+      <strong class="metric-value">{{ throttle() }}<small>%</small></strong>
+      <div class="bar"><i [style.width.%]="throttle()"></i></div>
+    </article>
+
+    <article class="card metric">
+      <span class="metric-label">Температура двигателя</span>
+      <strong class="metric-value">{{ engineTemp() }}<small>°C</small></strong>
+      <span class="metric-hint">по датчику блока</span>
+    </article>
+
+    <article class="card metric">
+      <span class="metric-label">Температура ESP32</span>
+      <strong class="metric-value">{{ cpuTemp() }}<small>°C</small></strong>
+      <span class="metric-hint">внутренний датчик</span>
+    </article>
+
+    <article class="card metric">
+      <span class="metric-label">Активная карта</span>
+      <strong class="metric-value">{{ cart() }}<small>/ 3</small></strong>
+      <span class="metric-hint">{{ typeLabel() }}</span>
+    </article>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <header class="card-head">
+        <h2>Обороты</h2>
+        <span class="muted">последние {{ device.history().length }} кадров</span>
+      </header>
+      @if (device.history().length > 1) {
+        <ded-chart [series]="rpmSeries()" xUnit="кадры" [xInteger]="true" ariaLabel="График оборотов" />
+      } @else {
+        <p class="empty">Ждём телеметрию от блока…</p>
+      }
+    </div>
+
+    <div class="card">
+      <header class="card-head">
+        <h2>Дроссель</h2>
+        <span class="muted">процент открытия</span>
+      </header>
+      @if (device.history().length > 1) {
+        <ded-chart [series]="throttleSeries()" xUnit="кадры" [xInteger]="true" ariaLabel="График дросселя" />
+      } @else {
+        <p class="empty">Ждём телеметрию от блока…</p>
+      }
+    </div>
+  </div>
+
+  <div class="card status-card">
+    <header class="card-head">
+      <h2>Связь и обновления</h2>
+      <button type="button" class="btn is-ghost is-compact" (click)="device.refreshStatus()">Обновить</button>
+    </header>
+
+    <div class="status-grid">
+      <div class="status-item">
+        <span class="status-label">Домашняя сеть</span>
+        <span class="status-value" [class.is-ok]="wifi()?.connected">
+          {{ wifiStatusLabel() }}
+        </span>
+        <span class="status-hint">автообновление {{ wifi()?.auto ? 'включено' : 'выключено' }}</span>
+      </div>
+
+      <div class="status-item">
+        <span class="status-label">Обновление прошивки</span>
+        <span class="status-value" [class.is-warn]="otaAvailable()">{{ otaLabel() }}</span>
+        <span class="status-hint">сейчас {{ device.firmwareVersion() }}</span>
+      </div>
+
+      <div class="status-item">
+        <span class="status-label">Канал телеметрии</span>
+        <span class="status-value" [class.is-ok]="device.online()">
+          {{ device.online() ? 'WebSocket подключён' : 'нет связи' }}
+        </span>
+        <span class="status-hint">{{ device.secure ? 'wss://' : 'ws://' }} · порт {{ device.secure ? 443 : 81 }}</span>
+      </div>
+    </div>
+  </div>
+</section>

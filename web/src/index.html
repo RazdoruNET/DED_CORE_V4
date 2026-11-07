@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>DED CORE V4</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0e1014" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Встроенный интерфейс блока зажигания DED CORE V4" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23d21f3c'/%3E%3Cpath d='M9 8h6a8 8 0 0 1 0 16H9z' fill='%23fff'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <ded-root>
+      <div class="boot">
+        <strong>DED CORE V4</strong>
+        <p>Загружаю интерфейс…</p>
+        <p class="boot-hint" id="boot-hint">Если страница остаётся чёрной, обновите её с очисткой кеша.</p>
+      </div>
+    </ded-root>
+    <style>
+      .boot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 100vh;
+        padding: 24px;
+        text-align: center;
+        background: #0e1014;
+        color: #e7e9ee;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      .boot strong { font-size: 20px; letter-spacing: 0.04em; }
+      .boot p { margin: 0; color: #8b929e; font-size: 14px; max-width: 420px; line-height: 1.5; }
+      .boot-hint { font-size: 12px !important; }
+    </style>
+    <script>
+      setTimeout(function () {
+        var hint = document.getElementById('boot-hint');
+        if (hint) {
+          hint.textContent =
+            'Интерфейс не загрузился. Скорее всего, браузер держит старую страницу в кеше: ' +
+            'обновите её с очисткой кеша (Ctrl+Shift+R на компьютере, долгое нажатие «Обновить» на телефоне) ' +
+            'или откройте в приватном окне.';
+        }
+      }, 6000);
+    </script>
+  </body>
+</html>

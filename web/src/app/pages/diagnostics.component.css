@@ -1,0 +1,80 @@
+.diag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.diag-grid + .diag-grid {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.status-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.status-value {
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.banner.is-error {
+  border-color: rgba(239, 91, 107, 0.5);
+  background: rgba(239, 91, 107, 0.08);
+  color: #ffb3bc;
+  font-size: 13px;
+}
+
+details {
+  border-top: 1px solid var(--border);
+  padding: 10px 0;
+}
+
+details:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+pre {
+  margin: 10px 0 0;
+  padding: 12px;
+  border-radius: 9px;
+  background: #0b0d11;
+  border: 1px solid var(--border);
+  color: #b9c1cc;
+  font-size: 11.5px;
+  line-height: 1.5;
+  max-height: 340px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

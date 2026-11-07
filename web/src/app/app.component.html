@@ -1,0 +1,68 @@
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">DED</span>
+    <div class="brand-text">
+      <strong>DED CORE <i>V4</i></strong>
+      <small>встроенный интерфейс блока</small>
+    </div>
+  </div>
+
+  <div class="top-status">
+    <button
+      type="button"
+      class="badge is-button"
+      [class.is-ok]="device.online()"
+      [class.is-warn]="!device.online()"
+      [attr.title]="device.online() ? 'Канал телеметрии работает' : 'Нажмите, чтобы переподключиться'"
+      (click)="reconnect()"
+    >
+      <i class="dot"></i>{{ connectionLabel() }}
+    </button>
+    <span class="badge">прошивка {{ version() }}</span>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Разделы">
+  @for (item of tabs; track item.id) {
+    <button type="button" [class.is-active]="tab() === item.id" (click)="tab.set(item.id)">
+      <span class="tab-long">{{ item.label }}</span>
+      <span class="tab-short">{{ item.short }}</span>
+    </button>
+  }
+</nav>
+
+<main class="content">
+  @switch (tab()) {
+    @case ('dashboard') {
+      <ded-dashboard />
+    }
+    @case ('map') {
+      <ded-map />
+    }
+    @case ('settings') {
+      <ded-settings />
+    }
+    @case ('assistant') {
+      <ded-assistant (openNetwork)="tab.set('network')" />
+    }
+    @case ('network') {
+      <ded-network />
+    }
+    @case ('diagnostics') {
+      <ded-diagnostics />
+    }
+  }
+</main>
+
+<footer class="footer">
+  <a href="/update">Обновление по воздуху</a>
+  <span>{{ host }}</span>
+</footer>
+
+<div class="toast-stack" role="status" aria-live="polite">
+  @for (toast of device.toasts(); track toast.id) {
+    <button type="button" class="toast" [class.is-ok]="toast.kind === 'ok'" [class.is-error]="toast.kind === 'error'" (click)="dismiss(toast.id)">
+      {{ toast.text }}
+    </button>
+  }
+</div>

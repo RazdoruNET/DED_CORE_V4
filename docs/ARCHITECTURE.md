@@ -58,7 +58,7 @@ DED_CORE_V4 - это система управления зажиганием д
 
 #### 9. Сетевые серверы (`servers/`)
 - **WIFI_SERVER.h** - Точка доступа, AP-DNS, режим восстановления, автообновление по WiFi
-- **WEB_SERVER_FUNCS.h** - `initServer()` и базовые маршруты (отдача фронта из SPIFFS)
+- **WEB_SERVER_FUNCS.h** - `initServer()` и базовые маршруты (отдача фронта из LittleFS)
 - **DEVICE_API_ROUTES.h** - HTTP API устройства на порту 80 (`/max`, `/servo`, `/update_card`, …)
 - **WEB_SOCKET_FUNCS.h** - WebSocket на порту 81: телеметрия и команды (ping/cart/servo_error)
 - **WEB_SERVER_CLEAN.h** / **WEB_SERVER_VARS.h** - объявления и объекты сервера
@@ -87,7 +87,7 @@ DED_CORE_V4 - это система управления зажиганием д
 ### 1. Инициализация (setup())
 ```
 1. Инициализация железа (initSystemHardware)
-   - Serial 115200 (буфер приёма 4096 — под провижининг сертификата), монтирование SPIFFS
+   - Serial 115200 (буфер приёма 4096 — под провижининг сертификата), монтирование LittleFS
    - Конфигурация пинов, pull-up на GPIO 33
 
 2. Проверка режима восстановления

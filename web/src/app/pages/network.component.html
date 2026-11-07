@@ -1,0 +1,290 @@
+<section class="page">
+  @if (device.secure) {
+    <div class="card banner">
+      Страница открыта по HTTPS. Проверка обновлений, загрузка прошивки и привязка доступны только по
+      <a href="http://192.168.4.1/update">http://192.168.4.1/update</a> — там же аварийное обновление,
+      если сертификат перестал работать.
+    </div>
+  }
+
+  @if (error(); as message) {
+    <div class="card banner is-error">{{ message }}</div>
+  }
+
+  <div class="grid-2">
+    <div class="card">
+      <header class="card-head">
+        <h2>Точка доступа блока</h2>
+        <span class="badge">{{ device.telemetry()?.wsid || '—' }}</span>
+      </header>
+
+      <div class="fields">
+        <label class="field">
+          <span>Имя сети</span>
+          <input type="text" maxlength="31" [value]="apSsid()" (input)="apSsid.set($any($event.target).value)" />
+        </label>
+        <label class="field">
+          <span>Новый пароль</span>
+          <input type="password" minlength="8" [value]="apPass()" (input)="apPass.set($any($event.target).value)" placeholder="оставить прежним" />
+          <small>не короче 8 символов; поле можно оставить пустым</small>
+        </label>
+        <div class="field">
+          <button type="button" class="btn is-primary" [disabled]="busy() !== null" (click)="saveAccessPoint()">
+            {{ busy() === 'ap' ? 'Сохраняю…' : 'Сохранить точку доступа' }}
+          </button>
+        </div>
+        <p class="hint">После смены имени телефон потеряет связь: выберите новую сеть в настройках Wi-Fi.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <header class="card-head">
+        <h2>Домашняя сеть</h2>
+        <span class="badge" [class.is-ok]="wifi()?.connected" [class.is-warn]="!wifi()?.connected">
+          {{ wifi()?.connected ? 'подключено' : 'не подключено' }}
+        </span>
+      </header>
+
+      <div class="fields">
+        <div class="status-row">
+          <span>Сеть</span>
+          <strong>{{ wifi()?.ssid || 'не настроена' }}</strong>
+        </div>
+        <div class="status-row">
+          <span>Состояние</span>
+          <strong>{{ wifiStatusLabel(wifi()?.status || '') }}</strong>
+        </div>
+        <div class="status-row">
+          <span>Последняя проверка</span>
+          <strong>{{ lastCheckLabel() }}</strong>
+        </div>
+        <div class="status-row">
+          <span>Автообновление</span>
+          <button type="button" class="switch" [class.is-on]="wifi()?.auto" [disabled]="busy() !== null" (click)="toggleAutoUpdate()">
+            <i></i><span>{{ wifi()?.auto ? 'включено' : 'выключено' }}</span>
+          </button>
+        </div>
+
+        <div class="row-actions">
+          <button type="button" class="btn is-ghost" [disabled]="busy() !== null" (click)="scan()">
+            {{ scanning() ? 'Сканирую…' : 'Найти сети' }}
+          </button>
+        </div>
+
+        @if (networks().length > 0) {
+          <ul class="networks">
+            @for (network of networks(); track network.ssid) {
+              <li [class.is-current]="network.ssid === homeSsid()">
+                <button type="button" class="network" (click)="useNetwork(network.ssid)">
+                  <span class="network-name">{{ network.ssid }}</span>
+                  <span class="bars" [attr.title]="network.rssi + ' dBm'" [attr.aria-label]="network.rssi + ' dBm'">
+                    @for (bar of [1, 2, 3, 4]; track bar) {
+                      <i [class.is-on]="bar <= bars(network.rssi)"></i>
+                    }
+                  </span>
+                  <span class="lock">{{ network.secure ? '🔒' : '—' }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        <label class="field">
+          <span>Имя сети</span>
+          <input type="text" [value]="homeSsid()" (input)="homeSsid.set($any($event.target).value)" placeholder="например, home-wifi" />
+        </label>
+        <label class="field">
+          <span>Пароль</span>
+          <input type="password" [value]="homePass()" (input)="homePass.set($any($event.target).value)" placeholder="пароль домашней сети" />
+          <small>блок остаётся точкой доступа: телефон не потеряет страницу</small>
+        </label>
+        <div class="field">
+          <button type="button" class="btn is-primary" [disabled]="busy() !== null || !homeSsid().trim()" (click)="connectHome()">
+            {{ busy() === 'connect' ? 'Подключаюсь (до 15 с)…' : 'Подключить' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <header class="card-head">
+      <h2>Обновление прошивки</h2>
+      <span class="badge" [class.is-warn]="otaAvailable()">{{ otaLabel() }}</span>
+    </header>
+
+    <div class="ota-grid">
+      <div class="status-item">
+        <span class="status-label">Установлено</span>
+        <span class="status-value">{{ device.firmwareVersion() }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Последняя версия у сервиса</span>
+        <span class="status-value">{{ otaCheck()?.newVersion || device.info()?.ota_last_version || '—' }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Режим OTA</span>
+        <span class="status-value">{{ device.sysStatus()?.ota?.mode || '—' }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Размер</span>
+        <span class="status-value">{{ sizeLabel() }}</span>
+      </div>
+    </div>
+
+    @if (otaCheck()?.changelog) {
+      <p class="hint">{{ otaCheck()?.changelog }}</p>
+    }
+
+    <div class="row-actions">
+      <button type="button" class="btn is-ghost" [disabled]="busy() !== null || !canCheckOta()" (click)="checkOta()">
+        {{ busy() === 'check' ? 'Проверяю…' : 'Проверить обновление' }}
+      </button>
+      <button type="button" class="btn is-primary" [disabled]="busy() !== null || !canInstallOta()" (click)="runOta()">
+        {{ busy() === 'ota' ? 'Запускаю…' : 'Установить обновление' }}
+      </button>
+    </div>
+
+    @if (!otaReady()) {
+      <p class="hint is-warn">
+        Блок не подключён к домашней сети: проверка и установка обновлений недоступны. Настройте сеть в блоке
+        «Домашняя сеть» — без интернета блок не сможет скачать образ.
+      </p>
+    } @else if (!otaAvailable()) {
+      <p class="hint">Сначала проверьте обновление: установка станет доступна, если сервис предложит новую версию.</p>
+    }
+
+    <div class="upload">
+      <div class="upload-head">
+        <strong>Обновление файлом по воздуху</strong>
+        <span class="muted">прошивка или файловая система</span>
+      </div>
+      <div class="upload-actions">
+        <label class="file-button">
+          <input type="file" accept=".bin" [disabled]="uploading() || !device.httpApi" (change)="upload('app', $event)" />
+          <span>Прошивка .bin</span>
+        </label>
+        <label class="file-button">
+          <input type="file" accept=".bin" [disabled]="uploading() || !device.httpApi" (change)="upload('fs', $event)" />
+          <span>Файловая система .bin</span>
+        </label>
+      </div>
+      @if (uploading()) {
+        <div class="progress">
+          <div class="bar"><i [style.width.%]="uploadProgress()"></i></div>
+          <span>{{ uploadProgress() }}%</span>
+        </div>
+      }
+      <p class="hint">Не выключайте питание во время записи. Обновление пишется в свободный слот.</p>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <header class="card-head">
+        <h2>Сертификат HTTPS</h2>
+        <span class="badge" [class.is-ok]="device.deviceStatus()?.cert" [class.is-warn]="!device.deviceStatus()?.cert">
+          {{ certLabel() }}
+        </span>
+      </header>
+
+      <div class="fields">
+        <label class="field">
+          <span>Формат</span>
+          <select [value]="certMode()" (change)="certMode.set($any($event.target).value)">
+            <option value="json">cert.json от сервиса</option>
+            <option value="pem">cert.pem + key.pem</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>{{ certMode() === 'json' ? 'Файл cert.json' : 'Файл cert.pem' }}</span>
+          <input type="file" accept=".json,.pem,.crt,.cer" (change)="onCertFile($event)" />
+        </label>
+
+        @if (certMode() === 'pem') {
+          <label class="field">
+            <span>Файл key.pem</span>
+            <input type="file" accept=".pem,.key" (change)="onKeyFile($event)" />
+          </label>
+        }
+
+        <div class="row-actions">
+          <button type="button" class="btn is-primary" [disabled]="busy() !== null" (click)="installCertificate()">
+            {{ busy() === 'cert' ? 'Устанавливаю…' : 'Установить сертификат' }}
+          </button>
+          <button type="button" class="btn is-ghost" [disabled]="busy() !== null || !device.httpApi" (click)="refreshCertificate()">
+            Получить у сервиса
+          </button>
+        </div>
+
+        @if (device.secure) {
+          <p class="hint is-warn">По HTTPS установка требует ключ устройства в заголовке — сохраните его в разделе «Привязка».</p>
+        }
+      </div>
+    </div>
+
+    <div class="card">
+      <header class="card-head">
+        <h2>Привязка к учётной записи</h2>
+        <span class="badge" [class.is-ok]="device.deviceStatus()?.paired">
+          {{ device.deviceStatus()?.paired ? 'привязан' : 'не привязан' }}
+        </span>
+      </header>
+
+      <div class="fields">
+        <div class="status-row">
+          <span>MAC блока</span>
+          <strong class="mono">{{ device.deviceStatus()?.mac || '—' }}</strong>
+        </div>
+        <div class="status-row">
+          <span>Код сопряжения</span>
+          <strong class="mono">{{ device.deviceStatus()?.pairCode || '—' }}</strong>
+        </div>
+
+        <label class="field">
+          <span>Ключ устройства</span>
+          <input type="text" [value]="deviceKeyInput()" (input)="deviceKeyInput.set($any($event.target).value)" placeholder="64 символа из приложения" />
+          <small>ключ обновлений; хранится в браузере и нужен для запросов по HTTPS</small>
+        </label>
+
+        <div class="row-actions">
+          <button type="button" class="btn is-primary" [disabled]="busy() !== null || !device.httpApi" (click)="provision()">
+            {{ busy() === 'pair' ? 'Привязываю…' : 'Привязать' }}
+          </button>
+          <button type="button" class="btn is-ghost" [disabled]="busy() !== null" (click)="saveDeviceKey()">
+            Запомнить в браузере
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <header class="card-head">
+      <h2>Состояние блока</h2>
+      <button type="button" class="btn is-ghost is-compact" [disabled]="busy() !== null" (click)="refresh()">Обновить</button>
+    </header>
+
+    <div class="ota-grid">
+      <div class="status-item">
+        <span class="status-label">Прошивка</span>
+        <span class="status-value">{{ device.deviceStatus()?.firmware || device.firmwareVersion() }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">HTTPS</span>
+        <span class="status-value" [class.is-ok]="device.deviceStatus()?.tls">{{ device.deviceStatus()?.tls ? 'работает' : 'выключен' }}</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Домашняя сеть</span>
+        <span class="status-value" [class.is-ok]="device.deviceStatus()?.wifiConnected">
+          {{ device.deviceStatus()?.wifiConnected ? 'подключена' : device.deviceStatus()?.wifiStatus || 'нет' }}
+        </span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Активная карта</span>
+        <span class="status-value">{{ (device.deviceStatus()?.active_cart ?? 0) + 1 }} из 3</span>
+      </div>
+    </div>
+  </div>
+</section>

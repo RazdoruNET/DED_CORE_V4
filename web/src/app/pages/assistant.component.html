@@ -1,0 +1,96 @@
+<section class="page">
+  <div class="card assistant-head">
+    <header class="card-head">
+      <h2>Люси</h2>
+      <span
+        class="badge"
+        [class.is-ok]="gate() === 'ready'"
+        [class.is-warn]="gate() !== 'ready'"
+      >
+        <i class="dot"></i>{{ gate() === 'ready' ? 'на связи' : 'недоступна' }}
+      </span>
+    </header>
+
+    <div class="checks">
+      <span class="check" [class.is-ok]="wifiConnected()" [class.is-warn]="!wifiConnected()">
+        <i></i>домашняя сеть
+      </span>
+      <span class="check" [class.is-ok]="paired()" [class.is-warn]="!paired()">
+        <i></i>привязка к аккаунту
+      </span>
+      <span class="check" [class.is-ok]="cloud() === 'ok'" [class.is-warn]="cloud() !== 'ok'">
+        <i></i>сервис «Люси»
+      </span>
+    </div>
+
+    @if (gate() !== 'ready') {
+      <div class="banner">
+        <strong>{{ gateTitle() }}</strong>
+        <p>{{ gateHint() }}</p>
+        <div class="row-actions">
+          @if (gate() === 'no-cloud') {
+            <button type="button" class="btn is-ghost" (click)="checkCloud()">Проверить снова</button>
+          }
+          @if (gate() === 'no-wifi' || gate() === 'not-paired') {
+            <button type="button" class="btn is-primary" (click)="openNetwork.emit()">Открыть «Сеть и обновления»</button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="card chat" [class.is-locked]="gate() !== 'ready'">
+    <div class="messages">
+      @if (messages().length === 0) {
+        <p class="empty">
+          Спросите про настройку блока: углы, ограничение оборотов, пропуски зажигания, перегрев.
+          Люси видит текущую телеметрию блока и ответит по ней.
+        </p>
+      }
+
+      @for (message of messages(); track $index) {
+        <article class="message" [class.is-user]="message.role === 'user'" [class.is-error]="message.role === 'error'">
+          <span class="who">{{ message.role === 'user' ? 'Вы' : message.role === 'error' ? 'Ошибка' : 'Люси' }}</span>
+          <p>{{ message.text }}</p>
+        </article>
+      }
+
+      @if (busy()) {
+        <article class="message is-thinking">
+          <span class="who">Люси</span>
+          <p>думает…</p>
+        </article>
+      }
+
+      <div #chatEnd></div>
+    </div>
+
+    @if (messages().length === 0 && gate() === 'ready') {
+      <div class="suggestions">
+        @for (hint of suggestions; track hint) {
+          <button type="button" class="chip" (click)="useSuggestion(hint)">{{ hint }}</button>
+        }
+      </div>
+    }
+
+    <div class="composer">
+      <textarea
+        rows="2"
+        maxlength="1000"
+        placeholder="Спросите Люси…"
+        [value]="prompt()"
+        [disabled]="gate() !== 'ready' || busy()"
+        (input)="prompt.set($any($event.target).value)"
+        (keydown)="onKeydown($event)"
+      ></textarea>
+      <button
+        type="button"
+        class="btn is-primary"
+        [disabled]="gate() !== 'ready' || busy() || prompt().trim() === ''"
+        (click)="send()"
+      >
+        {{ busy() ? 'Отправляю…' : 'Отправить' }}
+      </button>
+    </div>
+  </div>
+</section>

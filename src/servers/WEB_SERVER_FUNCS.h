@@ -29,7 +29,9 @@ void initServer() {
     return;
   }
 
-  server.serveStatic("/", DEVICE_FS, "/").setDefaultFile("index.html");
+  // no-store: после заливки новой файловой системы браузер не должен открывать
+  // index.html из кеша — иначе он попросит уже удалённый main.js и экран останется чёрным.
+  server.serveStatic("/", DEVICE_FS, "/").setDefaultFile("index.html").setCacheControl("no-store");
 
   initServerRoutes();
   initRecoveryServerRoutes();
@@ -48,7 +50,9 @@ void initRecoveryServer() {
     return;
   }
 
-  server.serveStatic("/", DEVICE_FS, "/").setDefaultFile("index.html");
+  // no-store: после заливки новой файловой системы браузер не должен открывать
+  // index.html из кеша — иначе он попросит уже удалённый main.js и экран останется чёрным.
+  server.serveStatic("/", DEVICE_FS, "/").setDefaultFile("index.html").setCacheControl("no-store");
 
   initRecoveryServerRoutes();
   

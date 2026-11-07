@@ -1,0 +1,159 @@
+.assistant-head .card-head {
+  align-items: center;
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.check i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--err);
+}
+
+.check.is-ok {
+  color: var(--text);
+  border-color: rgba(53, 194, 122, 0.4);
+}
+
+.check.is-ok i {
+  background: var(--ok);
+}
+
+.banner {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #cfd3da;
+  border-color: rgba(232, 179, 57, 0.4);
+  background: rgba(232, 179, 57, 0.08);
+}
+
+.banner p {
+  margin: 6px 0 10px;
+  color: #e3d6b3;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 340px;
+}
+
+.chat.is-locked {
+  opacity: 0.72;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: min(680px, 92%);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.message .who {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.message p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message.is-user {
+  align-self: flex-end;
+  background: var(--accent-soft);
+  border-color: rgba(210, 31, 60, 0.35);
+}
+
+.message.is-error {
+  align-self: stretch;
+  border-color: rgba(239, 91, 107, 0.5);
+  background: rgba(239, 91, 107, 0.08);
+  color: #ffb3bc;
+}
+
+.message.is-thinking p {
+  color: var(--muted);
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  color: #ff8e9d;
+}
+
+.composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.composer textarea {
+  resize: vertical;
+  min-height: 52px;
+}
+
+@media (max-width: 560px) {
+  .composer {
+    grid-template-columns: 1fr;
+  }
+}
