@@ -1,0 +1,19 @@
+version: 2
+
+# Зависимости фронта и сами экшены CI обновляются сами: встроенная страница
+# собирается из web/, а её зависимости попадают в образ файловой системы блока.
+updates:
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
