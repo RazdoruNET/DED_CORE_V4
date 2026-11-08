@@ -6,7 +6,8 @@
 #include "ARDUINO_OTA.h"
 
 ArduinoOTAManager::ArduinoOTAManager() {
-    otaPassword = "ded_ota_secure";
+    // Пароля по умолчанию нет: значение из публичного репозитория — это не пароль.
+    otaPassword = "";
     initialized = false;
 }
 
@@ -19,6 +20,14 @@ void ArduinoOTAManager::setHostname(const String& hostname) {
 }
 
 void ArduinoOTAManager::begin() {
+    // Порт ArduinoOTA без пароля пускает кого угодно, кто его найдёт: пока пароль
+    // не задан владельцем, путь обновления по UDP не поднимаем вовсе.
+    if (otaPassword.length() < 8) {
+        Serial.println("ArduinoOTA: password is not set, UDP update path is disabled");
+        initialized = false;
+        return;
+    }
+
     ArduinoOTA.setHostname("DED_CORE_V4");
     ArduinoOTA.setPassword(otaPassword.c_str());
     

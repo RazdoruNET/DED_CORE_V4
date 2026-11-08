@@ -53,7 +53,11 @@ int Servo_percent = 0;
 int type = 0;
 
 String APSSID1 = "DED_BOX_V4";
-String APPSK1 = "162534Bnm123q";
+// Пароль точки доступа не зашит в прошивку: он генерируется случайным при первом
+// старте и живёт в NVS (см. ensureAccessPointPassword в servers/WIFI_SERVER.h).
+// Пустая строка здесь — «ещё не создан», а не «сеть без пароля»: softAP без пароля
+// не поднимается, пока значение не сгенерировано.
+String APPSK1 = "";
 
 String APSSID = "";
 String APPSK = "";
@@ -81,7 +85,9 @@ boolean AFTER_REBOOT = false;
 
 // OTA Configuration
 int OTA_MODE = 0; // 0=AUTO, 1=MANUAL, 2=OFF
-String OTA_PASSWORD = "ded_ota_secure";
+// Пароля по умолчанию нет: зашитый в прошивку пароль публичного репозитория
+// равносилен его отсутствию. Пустое значение — ArduinoOTA не поднимается вовсе.
+String OTA_PASSWORD = "";
 String OTA_JWT_TOKEN = "";
 unsigned long OTA_CHECK_INTERVAL = 3600000; // 1 hour
 

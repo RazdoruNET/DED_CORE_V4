@@ -90,12 +90,18 @@ pre{white-space:pre-wrap;font-size:13px;color:#9ad}</style></head>
 <div class="card"><pre id="log">Готово к обновлению.</pre></div>
 <script>
 const log = t => document.getElementById('log').textContent = t;
+// Ключ устройства вводится в поле «Привязка» и уходит заголовком: без него блок
+// отказывает в обновлении и в установке сертификата (см. updateRequestAllowed).
+function authHeaders(){
+  const k = (document.getElementById('pairKey').value || '').trim();
+  return k ? {'X-Device-Key': k} : {};
+}
 async function send(input, target){
   const f = input.files[0];
   if(!f){ log('Выберите файл'); return; }
   log('Отправляем ' + f.name + ' (' + Math.round(f.size/1024) + ' КБ)… не выключайте питание');
   try{
-    const r = await fetch('/api/update?target=' + target, {method:'POST', body:f});
+    const r = await fetch('/api/update?target=' + target, {method:'POST', body:f, headers:authHeaders()});
     log(await r.text());
   }catch(e){ log('Ошибка: ' + e); }
 }
@@ -108,7 +114,7 @@ document.getElementById('gofs').onclick = function(){
 
 async function refreshStatus(){
   try{
-    const s = await (await fetch('/api/status')).json();
+    const s = await (await fetch('/api/status', {headers:authHeaders()})).json();
     document.getElementById('fw').textContent = s.firmware || '—';
     document.getElementById('tls').textContent = s.tls ? 'работает' : 'выключен (HTTP)';
     document.getElementById('tls').className = 'row ' + (s.tls ? 'ok' : 'bad');
@@ -143,7 +149,7 @@ document.getElementById('installCert').onclick = async function(){
       payload = JSON.stringify({cert: await c.text(), key: await k.text()});
     }
     log('Отправляем сертификат…');
-    const r = await fetch('/api/tls', {method:'POST', body:payload});
+    const r = await fetch('/api/tls', {method:'POST', body:payload, headers:authHeaders()});
     log(await r.text());
     setTimeout(refreshStatus, 1500);
   }catch(e){ log('Ошибка: ' + e); }
@@ -154,7 +160,7 @@ document.getElementById('fetchCert').onclick = async function(){
   this.disabled = true;
   log('Запрашиваем сертификат у сервиса…');
   try{
-    const r = await fetch('/api/tls/refresh', {method:'POST'});
+    const r = await fetch('/api/tls/refresh', {method:'POST', headers:authHeaders()});
     log(await r.text());
     setTimeout(refreshStatus, 1500);
   }catch(e){ log('Ошибка: ' + e); }
@@ -166,9 +172,8 @@ document.getElementById('pairGo').onclick = async function(){
   if(key.length < 32){ log('Вставьте ключ устройства из приложения'); return; }
   this.disabled = true;
   try{
-    const r = await fetch('/api/provision', {method:'POST', body:JSON.stringify({key:key})});
+    const r = await fetch('/api/provision', {method:'POST', body:JSON.stringify({key:key}), headers:authHeaders()});
     log(await r.text());
-    document.getElementById('pairKey').value = '';
     setTimeout(refreshStatus, 500);
   }catch(e){ log('Ошибка: ' + e); }
   this.disabled = false;
@@ -181,28 +186,48 @@ refreshStatus();
 static bool updateInProgress = false;
 static bool updateAuthorized = false;
 
-// Запрос пришёл из сети самой точки доступа: туда пускает только её пароль.
+// Запрос пришёл из сети самой точки доступа. Это НЕ аутентификация: подсеть 192.168.4.0/24
+// — просто адрес по умолчанию у ESP32, а пароль точки доступа знает каждый, кто к ней
+// подключился. Поэтому признак используется только как «устройство ещё не привязано,
+// настраивать нечем» — см. updateRequestAllowed.
 bool updateFromAccessPoint(AsyncWebServerRequest *request) {
   IPAddress client = request->client()->remoteIP();
   return client[0] == 192 && client[1] == 168 && client[2] == 4;
 }
 
+// Ключ устройства сравниваем в постоянном времени: длина известна и так, а ранний
+// выход на первом несовпадении даёт лишний канал.
+bool updateKeyEquals(const String &a, const String &b) {
+  if (a.length() == 0 || a.length() != b.length()) {
+    return false;
+  }
+
+  unsigned char diff = 0;
+
+  for (size_t i = 0; i < a.length(); i++) {
+    diff |= static_cast<unsigned char>(a[i] ^ b[i]);
+  }
+
+  return diff == 0;
+}
+
 bool updateRequestAllowed(AsyncWebServerRequest *request) {
-  if (updateFromAccessPoint(request)) {
-    return true;
-  }
-
   String deviceKey = otaManager.getDeviceKey();
-  if (deviceKey.length() == 0) {
-    // Ключ не выдан (устройство ещё не привязано) — из домашней сети не пускаем.
-    return false;
+
+  // Привязанный блок принимает образ только от владельца с ключом — из точки доступа
+  // тоже. Иначе любой, кто узнал пароль AP (а он печатается в лог и живёт в NVS),
+  // мог бы залить свою прошивку поверх штатной.
+  if (deviceKey.length() > 0) {
+    if (!request->hasHeader("X-Device-Key")) {
+      return false;
+    }
+
+    return updateKeyEquals(request->getHeader("X-Device-Key")->value(), deviceKey);
   }
 
-  if (!request->hasHeader("X-Device-Key")) {
-    return false;
-  }
-
-  return request->getHeader("X-Device-Key")->value() == deviceKey;
+  // Ключа нет — блок не привязан. Обновление разрешаем только из его же сети:
+  // это первичная настройка, и других учётных данных у блока пока нет.
+  return updateFromAccessPoint(request);
 }
 
 void registerUpdateRoutes(AsyncWebServer *server) {
@@ -215,7 +240,7 @@ void registerUpdateRoutes(AsyncWebServer *server) {
       // Итог отдаём, когда тело уже принято и записано (см. обработчик тела).
       if (!updateAuthorized) {
         request->send(403, "text/plain",
-          "Обновление доступно из сети блока или с ключом устройства (X-Device-Key).");
+          "Нужен ключ устройства (X-Device-Key): обновление из сети блока доступно только непривязанному блоку.");
         return;
       }
 
@@ -236,6 +261,22 @@ void registerUpdateRoutes(AsyncWebServer *server) {
                             request->getParam("target")->value() == "fs";
 
         int command = toFileSystem ? U_SPIFFS : U_FLASH;
+
+        // Если вызывающая сторона передала md5, образ проверяется по нему: без этого
+        // в блок уходит ровно то, что прислали, и сверить содержимое будет нечем.
+        if (request->hasParam("md5")) {
+          String md5 = request->getParam("md5")->value();
+          md5.trim();
+          md5.toLowerCase();
+
+          if (md5.length() != 32) {
+            Serial.println("Update: md5 parameter must be 32 hex characters");
+            updateAuthorized = false;
+            return;
+          }
+
+          Update.setMD5(md5.c_str());
+        }
 
         // Update сам откажется, если образ больше неактивного слота.
         if (!Update.begin(total, command)) {

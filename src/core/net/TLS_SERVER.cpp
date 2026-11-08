@@ -159,6 +159,17 @@ esp_err_t tlsStaticHandler(httpd_req_t *req) {
     return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad path");
   }
 
+  // Материал TLS и служебные файлы лежат в том же разделе, что и фронт, поэтому
+  // статический обработчик обязан их не отдавать: /key.pem — приватный ключ устройства,
+  // и с ним можно выдать себя за блок перед приложением.
+  String lower = path;
+  lower.toLowerCase();
+
+  if (lower.endsWith(".pem") || lower.endsWith(".key") || lower.endsWith(".p12")
+      || lower.endsWith(".pfx") || lower.endsWith(".der") || lower.endsWith(".token")) {
+    return httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Not found");
+  }
+
   File file = DEVICE_FS.open(path, "r");
   if (!file || file.isDirectory()) {
     return httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Not found");
@@ -199,7 +210,14 @@ bool tlsRequestAuthorized(httpd_req_t *req) {
     return false;
   }
 
-  return deviceKey == String(header);
+  // Сравнение в постоянном времени: длина известна и так, а ранний выход на первом
+  // несовпадении даёт лишний канал для подбора ключа.
+  unsigned char diff = 0;
+  for (size_t i = 0; i < headerLen; i++) {
+    diff |= static_cast<unsigned char>(header[i] ^ deviceKey[i]);
+  }
+
+  return diff == 0;
 }
 
 // Приём сертификата:

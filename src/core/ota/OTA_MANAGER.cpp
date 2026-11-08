@@ -49,6 +49,13 @@ void OTAManager::loadDeviceKey() {
 }
 
 void OTAManager::setDeviceKey(const String& key) {
+    // Ключ устройства — единственные учётные данные блока: пустой или короткий ключ
+    // означал бы, что API открыт всем, кто оказался в той же сети.
+    if (key.length() < 32 || key.length() > 128) {
+        Serial.println("Device key rejected: length must be 32..128 characters");
+        return;
+    }
+
     deviceKey = key;
     preferences.putString("device_key", key);
     Serial.println("Device key saved to NVS");

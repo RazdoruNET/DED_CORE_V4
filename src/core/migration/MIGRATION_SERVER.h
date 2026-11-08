@@ -279,21 +279,35 @@ void sendMigrationStatus(AsyncWebServerRequest *request) {
   request->send(200, "application/json", body);
 }
 
-// Права как у обновления по воздуху: из сети точки доступа или с ключом устройства.
+// Права как у обновления по воздуху: ключ устройства обязателен, если он выдан;
+// из сети точки доступа — только пока блока ещё не привязали (иначе переход на новую
+// разметку мог бы запустить любой, кто узнал пароль точки доступа).
 bool migrationRequestAllowed(AsyncWebServerRequest *request) {
-  IPAddress client = request->client()->remoteIP();
-
-  if (client[0] == 192 && client[1] == 168 && client[2] == 4) {
-    return true;
-  }
-
   String deviceKey = otaManager.getDeviceKey();
 
-  if (deviceKey.length() == 0 || !request->hasHeader("X-Device-Key")) {
-    return false;
+  if (deviceKey.length() > 0) {
+    if (!request->hasHeader("X-Device-Key")) {
+      return false;
+    }
+
+    // Сравнение в постоянном времени — как в остальных проверках ключа.
+    const String provided = request->getHeader("X-Device-Key")->value();
+
+    if (provided.length() != deviceKey.length()) {
+      return false;
+    }
+
+    unsigned char diff = 0;
+
+    for (size_t i = 0; i < provided.length(); i++) {
+      diff |= static_cast<unsigned char>(provided[i] ^ deviceKey[i]);
+    }
+
+    return diff == 0;
   }
 
-  return request->getHeader("X-Device-Key")->value() == deviceKey;
+  IPAddress client = request->client()->remoteIP();
+  return client[0] == 192 && client[1] == 168 && client[2] == 4;
 }
 
 void registerMigrationRoutes(AsyncWebServer *server) {

@@ -3,6 +3,7 @@
 
 #include <WiFi.h>
 #include <DNSServer.h>
+#include <esp_random.h>
 #include "config/PROPS.h"
 #include "core/ota/HYBRID_OTA.h"
 #include "core/net/DEVICE_COMMANDS.h"
@@ -30,6 +31,34 @@ void initApDns() {
   Serial.println("AP-DNS started");
 }
 
+// Пароль точки доступа уникален для каждого блока.
+//
+// Раньше он был зашит в прошивку, а прошивка лежит в публичном репозитории — то есть
+// пароль знал любой, кто прочитал исходники, и в радиусе AP мог войти в блок, подменить
+// карту зажигания или залить свою прошивку. Теперь пароль создаётся случайным при первом
+// включении и хранится в NVS; смена пароля из приложения его перезаписывает.
+bool ensureAccessPointPassword() {
+  if (APPSK1.length() >= 8) {
+    return true;
+  }
+
+  // Без похожих друг на друга символов: пароль читают глазами с экрана и набирают вручную.
+  static const char alphabet[] = "abcdefghijkmnpqrstuvwxyz23456789";
+  String generated;
+  generated.reserve(16);
+
+  for (int i = 0; i < 16; i++) {
+    generated += alphabet[esp_random() % (sizeof(alphabet) - 1)];
+  }
+
+  APPSK1 = generated;
+  preferences.putString("APPSK1", APPSK1);
+  Serial.print("AP password generated: ");
+  Serial.println(APPSK1);
+
+  return true;
+}
+
 // Forward declarations
 bool connectToConfiguredWifi();
 void handleWifiAutoUpdate();
@@ -40,7 +69,15 @@ void initWifi()
 {
   WiFi.mode(WIFI_AP_STA);
   WiFi.setAutoReconnect(true);
-  WiFi.softAP(APSSID1, APPSK1);
+
+  // Точка доступа без пароля не поднимается: пустое значение означает, что пароль
+  // ещё не создан, а не «открытая сеть».
+  if (ensureAccessPointPassword()) {
+    WiFi.softAP(APSSID1, APPSK1);
+  } else {
+    Serial.println("WiFi: AP password is not set, access point is disabled");
+  }
+
   WIFI_UPDATE_STATUS = "ap_ready";
 
   initApDns();
@@ -289,8 +326,21 @@ void initRecoveryWifi()
   WiFi.mode(WIFI_AP);
   
   String recovery_wifi_sid = "DED_RECOVERY";
-  String recovery_wifi_password = "1234567890";
 
+  // Пароль тот же, что у основной точки доступа: он уникален для блока и уже лежит
+  // в NVS. Зашитый в прошивку «1234567890» из публичного репозитория означал бы, что
+  // в аварийный режим может зайти любой в радиусе. В этот режим попадают физическим
+  // действием (кнопка при включении), поэтому пароль печатаем в лог: доступ к UART есть.
+  ensureAccessPointPassword();
+  String recovery_wifi_password = APPSK1;
+
+  if (recovery_wifi_password.length() < 8) {
+    Serial.println("Recovery: AP password is not set, recovery access point is disabled");
+    return;
+  }
+
+  Serial.print("Recovery AP password: ");
+  Serial.println(recovery_wifi_password);
   WiFi.softAP(recovery_wifi_sid, recovery_wifi_password);
   
   // Serial.print("Setting recovery soft-AP ... ");

@@ -26,6 +26,65 @@
 
 extern HybridOTAManager otaManager;
 
+// --- Проверка права на изменение состояния ------------------------------------
+//
+// Пароль точки доступа — не аутентификация: его знает каждый, кто подключился к сети
+// блока, а раньше он вообще был зашит в прошивку. Поэтому действия, которые меняют
+// настройки, обновление или питание, требуют ключ устройства (`X-Device-Key`).
+//
+// Пока ключ не выдан (блок не привязан), менять настройки разрешено только из сети
+// самого блока — иначе первый же владелец не смог бы ничего настроить до привязки.
+// Как только ключ появился, путь «из подсети» для опасных действий закрывается.
+
+// Сравнение без раннего выхода: длина ключа известна атакующему и так, а посимвольный
+// возврат на первом несовпадении даёт лишний канал.
+bool dedCoreKeyEquals(const String &a, const String &b) {
+  if (a.length() == 0 || a.length() != b.length()) {
+    return false;
+  }
+
+  unsigned char diff = 0;
+
+  for (size_t i = 0; i < a.length(); i++) {
+    diff |= static_cast<unsigned char>(a[i] ^ b[i]);
+  }
+
+  return diff == 0;
+}
+
+bool dedCoreKeyMatches(AsyncWebServerRequest *request) {
+  String deviceKey = otaManager.getDeviceKey();
+
+  if (deviceKey.length() == 0 || !request->hasHeader("X-Device-Key")) {
+    return false;
+  }
+
+  return dedCoreKeyEquals(request->getHeader("X-Device-Key")->value(), deviceKey);
+}
+
+bool dedCoreFromAccessPoint(AsyncWebServerRequest *request) {
+  IPAddress client = request->client()->remoteIP();
+  return client[0] == 192 && client[1] == 168 && client[2] == 4;
+}
+
+/// Действие меняет состояние: нужен ключ, если он уже выдан.
+bool dedCoreChangeAllowed(AsyncWebServerRequest *request) {
+  if (otaManager.getDeviceKey().length() > 0) {
+    return dedCoreKeyMatches(request);
+  }
+
+  return dedCoreFromAccessPoint(request);
+}
+
+/// Чувствительное чтение (пароль точки доступа, код сопряжения): только по ключу.
+bool dedCoreReadSecretAllowed(AsyncWebServerRequest *request) {
+  return dedCoreKeyMatches(request);
+}
+
+void dedCoreDenyKey(AsyncWebServerRequest *request) {
+  request->send(403, "text/plain", "Нужен ключ устройства (X-Device-Key)");
+}
+
 /// Регистрирует API устройства на переданном сервере (обычный HTTP-сервер, порт 80).
 void registerDeviceApiRoutes(AsyncWebServer *server) {
 server->on("/card", HTTP_GET, [] (AsyncWebServerRequest *request) 
@@ -374,6 +433,11 @@ server->on("/type", HTTP_GET, [] (AsyncWebServerRequest *request)
 
 server->on("/flash", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
     AFTER_REBOOT = false;
     SAVE_CONFIG = true;
     request->send(200, "text/plain", "OK");
@@ -381,7 +445,12 @@ server->on("/flash", HTTP_GET, [] (AsyncWebServerRequest *request)
 
 server->on("/wifi/updator", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
-    if (request->hasParam("ssid")) 
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
+    if (request->hasParam("ssid") && request->hasParam("appsk")) 
     {
        APSSID = request->getParam("ssid")->value();
        APPSK = request->getParam("appsk")->value();
@@ -394,7 +463,12 @@ server->on("/wifi/updator", HTTP_GET, [] (AsyncWebServerRequest *request)
 
 server->on("/wifi", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
-    if (request->hasParam("ssid")) 
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
+    if (request->hasParam("ssid") && request->hasParam("appsk")) 
     {
        APSSID1 = request->getParam("ssid")->value();
        APPSK1 = request->getParam("appsk")->value();
@@ -406,6 +480,11 @@ server->on("/wifi", HTTP_GET, [] (AsyncWebServerRequest *request)
 
 server->on("/wifi/auto", HTTP_GET, [] (AsyncWebServerRequest *request) 
   {
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
     if (request->hasParam("ssid")) {
       WIFI_UPDATE_SSID = request->getParam("ssid")->value();
       preferences.putString("wifi_ssid", WIFI_UPDATE_SSID);
@@ -527,6 +606,11 @@ server->on("/wifi/scan", HTTP_GET, [] (AsyncWebServerRequest *request) {
   });
 
 server->on("/wifi/connect", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
     if (request->hasParam("ssid")) {
       WIFI_UPDATE_SSID = request->getParam("ssid")->value();
       preferences.putString("wifi_ssid", WIFI_UPDATE_SSID);
@@ -703,6 +787,11 @@ server->on("/ota/status", HTTP_GET, [] (AsyncWebServerRequest *request) {
   });
 
 server->on("/ota/update", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
     bool success = otaManager.performUpdate();
     
     if (success) {
@@ -713,6 +802,11 @@ server->on("/ota/update", HTTP_POST, [] (AsyncWebServerRequest *request) {
   });
 
 server->on("/ota/mode", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
     if (request->hasParam("mode")) {
       int mode = request->getParam("mode")->value().toInt();
       OTA_MODE = mode;
@@ -728,8 +822,20 @@ server->on("/ota/mode", HTTP_POST, [] (AsyncWebServerRequest *request) {
   });
 
 server->on("/ota/password", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
     if (request->hasParam("password")) {
       String password = request->getParam("password")->value();
+
+      // Короткий пароль на порту обновления — то же, что его отсутствие.
+      if (password.length() > 0 && password.length() < 8) {
+        request->send(400, "text/plain", "Password must be at least 8 characters");
+        return;
+      }
+
       OTA_PASSWORD = password;
       preferences.putString("OTA_PASSWORD", OTA_PASSWORD);
       otaManager.setArduinoOTAPassword(password);
@@ -747,11 +853,23 @@ server->on("/wifi/ssid", HTTP_GET, [] (AsyncWebServerRequest *request)
 
 server->on("/wifi/pass", HTTP_GET, [] (AsyncWebServerRequest *request)
   {
+    // Пароль точки доступа — секрет блока: без него в него не войти. Отдаём только
+    // владельцу с ключом устройства, а не любому, кто уже подключился к сети.
+    if (!dedCoreReadSecretAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
     request->send(200, "text/plain", APPSK1);
   });
 
 server->on("/core/reboot", HTTP_GET, [] (AsyncWebServerRequest *request)
   {
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
     request->send(200, "text/plain", "REBOOT");
     ESP.restart();
   });

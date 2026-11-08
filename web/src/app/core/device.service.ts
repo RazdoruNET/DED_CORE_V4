@@ -690,7 +690,7 @@ export class DeviceService {
   }
 
   private async httpJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(url, { cache: 'no-store', ...init });
+    const response = await fetch(url, { cache: 'no-store', ...init, headers: this.withKey(init?.headers) });
     if (!response.ok) {
       throw new Error(await errorText(response));
     }
@@ -699,13 +699,25 @@ export class DeviceService {
   }
 
   private async httpText(url: string, init?: RequestInit): Promise<string> {
-    const response = await fetch(url, { cache: 'no-store', ...init });
+    const response = await fetch(url, { cache: 'no-store', ...init, headers: this.withKey(init?.headers) });
     const text = await response.text();
     if (!response.ok) {
       throw new Error(text || `Ошибка ${response.status}`);
     }
 
     return text;
+  }
+
+  // Ключ устройства уходит заголовком: без него блок отказывает в опасных действиях
+  // (смена настроек, обновление, перезагрузка, выдача пароля точки доступа). Пока ключ
+  // не введён, запрос уходит как есть — так работает первичная настройка непривязанного блока.
+  private withKey(headers?: HeadersInit): HeadersInit {
+    const key = this.deviceKey().trim();
+    if (!key) {
+      return headers ?? {};
+    }
+
+    return { ...(headers as Record<string, string> | undefined), 'X-Device-Key': key };
   }
 }
 
