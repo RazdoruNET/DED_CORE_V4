@@ -216,19 +216,34 @@ String mapPointJson(int cart, int point) {
 bool applyMapPoint(int cart, int point, float rpm, float angle, float angleAdjust, int quickAdjust, float servo) {
   int index = cart - 1;
 
+  if (index < 0 || index >= 3 || point < 0 || point >= MAP_POINTS_MAX) {
+    return false;
+  }
+
+  // Значения приходят от клиента (WebSocket, wss, Bluetooth), а карта управляет
+  // зажиганием работающего двигателя. Диапазоны — те же, что у полей страницы:
+  // угол за их пределами означает детонацию и разрушение поршневой, а не «неверную
+  // настройку», поэтому подрезаем молча, ровно как в applySettingsPatch.
+  rpm = constrain(rpm, (float) SETTINGS_MAX_RPM_MIN, (float) SETTINGS_MAX_RPM_MAX);
+  angle = constrain(angle, (float) SETTINGS_ANGLE_MIN, (float) SETTINGS_ANGLE_MAX);
+
+  int adjustedAngle = clampSetting((int) angleAdjust, SETTINGS_ANGLE_MIN, SETTINGS_ANGLE_MAX);
+  int adjustedQuick = clampSetting(quickAdjust, SETTINGS_ANGLE_MIN, SETTINGS_ANGLE_MAX);
+  int adjustedServo = clampSetting((int) servo, SETTINGS_SERVO_PERCENT_MIN, SETTINGS_SERVO_PERCENT_MAX);
+
   rpmsArr[index][point] = rpm;
   anglesArr[index][point] = angle;
-  angles_adjustmentArr[index][point] = (int) angleAdjust;
-  quick_adjustmentArr[index][point] = quickAdjust;
-  servo_valueArr[index][point] = (int) servo;
+  angles_adjustmentArr[index][point] = adjustedAngle;
+  quick_adjustmentArr[index][point] = adjustedQuick;
+  servo_valueArr[index][point] = adjustedServo;
 
   String suffix = String(index) + "_" + String(point);
 
   preferences.putInt(("rpm" + suffix).c_str(), (int) (rpm * 100));
   preferences.putInt(("angles" + suffix).c_str(), (int) (angle * 100));
-  preferences.putInt(("aa" + suffix).c_str(), (int) (angleAdjust * 100));
-  preferences.putInt(("qa" + suffix).c_str(), (int) (quickAdjust * 100));
-  preferences.putInt(("servo" + suffix).c_str(), (int) servo);
+  preferences.putInt(("aa" + suffix).c_str(), adjustedAngle * 100);
+  preferences.putInt(("qa" + suffix).c_str(), adjustedQuick * 100);
+  preferences.putInt(("servo" + suffix).c_str(), adjustedServo);
 
   Serial.print("map saved: cart ");
   Serial.print(cart);

@@ -103,6 +103,29 @@ String blePairInfoJson() {
   return body;
 }
 
+// --- Физическое присутствие ---------------------------------------------------
+//
+// BLE-линк не аутентифицирован (NimBLE поднят без бондинга), а радиус действия —
+// десятки метров. Значит «клиент рядом по Bluetooth» ничего не доказывает. Поэтому
+// действия, которые отдают секреты блока или меняют его владельца, разрешаем только
+// в течение минуты после нажатия кнопки на самом блоке: её может нажать лишь тот,
+// у кого блок в руках.
+#define DED_CORE_BLE_PRESENCE_MS 60000UL
+
+static unsigned long bleLastPresenceAt = 0;
+static bool blePresenceSeen = false;
+
+void noteBlePresence() {
+  if (digitalRead(select_cart_down_pin) == LOW) {
+    bleLastPresenceAt = millis();
+    blePresenceSeen = true;
+  }
+}
+
+bool blePresenceRecent() {
+  return blePresenceSeen && (millis() - bleLastPresenceAt) < DED_CORE_BLE_PRESENCE_MS;
+}
+
 // Вызывается из loop(): здесь обычный стек, места хватает и на разбор JSON, и на запись в NVS.
 void handleBleCommands() {
   if (bleCommandQueue == nullptr) {
@@ -112,6 +135,8 @@ void handleBleCommands() {
   char frame[DED_CORE_BLE_FRAME_MAX];
 
   while (xQueueReceive(bleCommandQueue, frame, 0) == pdTRUE) {
+    noteBlePresence();
+
     String payload = String(frame);
 
     // Провижининг ключа: остальное разбирает общий обработчик — тот же JSON приходит
@@ -120,6 +145,14 @@ void handleBleCommands() {
     JsonObject& root = jsonBuffer.parseObject(payload);
 
     if (root.success() && root["event"] == "provision") {
+      // Ключ устройства — это полный доступ к блоку. Выдавать его по одному факту
+      // «клиент рядом по Bluetooth» нельзя: радиус BLE — десятки метров, и подменить
+      // ключ смог бы любой прохожий. Требуем физическое действие: кнопку блока.
+      if (!blePresenceRecent()) {
+        Serial.println("BLE PROVISION denied: no recent button press");
+        continue;
+      }
+
       const char* key = root["data"]["key"];
       if (key != nullptr && strlen(key) > 0) {
         otaManager.setDeviceKey(String(key));
@@ -130,6 +163,15 @@ void handleBleCommands() {
     }
 
     if (root.success() && root["event"] == "pair_info") {
+      // MAC и код сопряжения — то, по чему блок привязывают к аккаунту. Без физического
+      // подтверждения их нельзя отдавать в эфир: иначе блок «привяжет» любой, кто
+      // окажется в радиусе, а владелец об этом не узнает.
+      if (!blePresenceRecent()) {
+        bleNotify("{\"event\":\"pair_info\",\"data\":{\"error\":\"presence\"}}");
+        Serial.println("BLE pair info denied: no recent button press");
+        continue;
+      }
+
       bleNotify(blePairInfoJson());
       Serial.println("BLE pair info sent");
       continue;

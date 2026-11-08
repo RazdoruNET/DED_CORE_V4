@@ -92,7 +92,9 @@ String getDataJson() {
   data["cpu_termo"] = (temprature_sens_read() - 32) / 1.8;
   data["card"] = active_cart;
   data["wsid"] = APSSID1;
-  data["wpass"] = APPSK1;
+  // Пароль точки доступа в кадр не кладём: кадр уходит всем подключённым клиентам
+  // без аутентификации, а пароль — это вход в сеть блока. Он доступен только по
+  // ключу устройства (см. GET /wifi/pass).
   data["INVERT_SENSOR"] = INVERT_SENSOR;
   data["INVERT_THROTTLE"] = INVERT_THROTTLE;
   data["servo"] = SERVO;
@@ -140,8 +142,16 @@ String getDataJson() {
 void send_data() {
   String json = getDataJson();
 
-  for (int i = 0; i <= 100; i++) {
-    webSocket.sendTXT(i, json);
+  // Раньше кадр уходил по ID 0..100 — это сто одна запись в сокеты, из которых
+  // подключён хорошо если один, и рассылка состояния всем клиентам сразу.
+#ifndef WEBSOCKETS_SERVER_CLIENT_MAX
+#define WEBSOCKETS_SERVER_CLIENT_MAX 5
+#endif
+
+  for (uint8_t client = 0; client < WEBSOCKETS_SERVER_CLIENT_MAX; client++) {
+    if (webSocket.clientIsConnected(client)) {
+      webSocket.sendTXT(client, json);
+    }
   }
 
   modul = 0;

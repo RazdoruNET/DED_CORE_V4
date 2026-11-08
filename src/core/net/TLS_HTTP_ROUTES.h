@@ -33,20 +33,43 @@ extern HybridOTAManager otaManager;
 
 // Права: из сети самой точки доступа (туда пускает пароль сети блока) либо с ключом
 // устройства. Так сертификат не подменит сосед по домашней сети.
-bool tlsHttpRequestAllowed(AsyncWebServerRequest *request) {
-  IPAddress client = request->client()->remoteIP();
-
-  if (client[0] == 192 && client[1] == 168 && client[2] == 4) {
-    return true;
+bool tlsHttpKeyEquals(const String &a, const String &b) {
+  if (a.length() == 0 || a.length() != b.length()) {
+    return false;
   }
 
+  unsigned char diff = 0;
+
+  for (size_t i = 0; i < a.length(); i++) {
+    diff |= static_cast<unsigned char>(a[i] ^ b[i]);
+  }
+
+  return diff == 0;
+}
+
+bool tlsHttpKeyMatches(AsyncWebServerRequest *request) {
   String deviceKey = otaManager.getDeviceKey();
 
   if (deviceKey.length() == 0 || !request->hasHeader("X-Device-Key")) {
     return false;
   }
 
-  return request->getHeader("X-Device-Key")->value() == deviceKey;
+  return tlsHttpKeyEquals(request->getHeader("X-Device-Key")->value(), deviceKey);
+}
+
+bool tlsHttpRequestAllowed(AsyncWebServerRequest *request) {
+  if (tlsHttpKeyMatches(request)) {
+    return true;
+  }
+
+  // Из сети блока — только пока ключа нет: привязанный блок меняет сертификат
+  // и параметры лишь по ключу устройства.
+  if (otaManager.getDeviceKey().length() > 0) {
+    return false;
+  }
+
+  IPAddress client = request->client()->remoteIP();
+  return client[0] == 192 && client[1] == 168 && client[2] == 4;
 }
 
 void tlsSendStatusJson(AsyncWebServerRequest *request) {
@@ -64,7 +87,9 @@ void tlsSendStatusJson(AsyncWebServerRequest *request) {
   json["active_cart"] = active_cart;
   json["rpm"] = RPM;
   // Код сопряжения и MAC нужны приложению, чтобы владелец привязал блок к аккаунту.
-  json["pairCode"] = devicePairCode();
+  // Сам код — секрет блока: по нему привязывают к чужому аккаунту. Поэтому он уходит
+  // только владельцу с ключом устройства, а из сети блока без ключа виден лишь MAC.
+  json["pairCode"] = tlsHttpKeyMatches(request) ? devicePairCode() : "";
   json["mac"] = WiFi.macAddress();
   json["paired"] = otaManager.getDeviceKey().length() > 0;
 
