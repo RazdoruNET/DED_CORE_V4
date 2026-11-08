@@ -88,6 +88,11 @@ void bleNotify(const String &body) {
 String blePairInfoJson() {
   // Приложение по Bluetooth узнаёт MAC и код, чтобы привязать блок к аккаунту:
   // со страницы HTTPS приложение не может обратиться к блоку по обычному HTTP.
+  //
+  // Пароль точки доступа отдаём здесь же: он уникален для блока и больше не зашит
+  // в прошивку, а другого способа узнать его у владельца нет — подключиться к сети
+  // без пароля нельзя. Вызов pair_info требует нажатия кнопки (см. blePresenceRecent),
+  // поэтому «просто прохожий в радиусе» пароль не получит.
   StaticJsonBuffer<256> replyBuffer;
   JsonObject& reply = replyBuffer.createObject();
   JsonObject& data = replyBuffer.createObject();
@@ -95,6 +100,7 @@ String blePairInfoJson() {
   reply["event"] = "pair_info";
   data["mac"] = WiFi.macAddress();
   data["code"] = devicePairCode();
+  data["wpass"] = APPSK1;
   data["paired"] = otaManager.getDeviceKey().length() > 0;
   reply["data"] = data;
 
