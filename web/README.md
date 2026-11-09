@@ -11,7 +11,7 @@ Angular-приложение, которое лежит в LittleFS блока �
 ## Сборка
 
 ```bash
-cd DED_CORE_V4-feature-ota-server-update/web
+cd web
 ./build.sh
 ```
 

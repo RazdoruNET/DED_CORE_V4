@@ -12,7 +12,7 @@
 ### Системные настройки
 ```cpp
 // Версия прошивки (PROPS.h, #define)
-#define FIRMWARE_VERSION "4.0.0"
+#define FIRMWARE_VERSION "4.0.16"
 
 int max_rpm = 0;               // порог отсечки, задаётся снаружи (типовое 10000-14000)
 int max_rpm_angle_kiker = 0;   // снятие угла на отсечке, град (типовое 4)

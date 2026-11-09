@@ -61,7 +61,7 @@ DED_CORE_V4 предоставляет RESTful HTTP API и WebSocket интер�
 ```http
 GET /core/version
 ```
-**Ответ**: `4.0.0`
+**Ответ**: `4.0.16`
 
 #### Перезагрузка системы
 ```http

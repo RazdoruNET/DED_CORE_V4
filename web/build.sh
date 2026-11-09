@@ -30,5 +30,5 @@ mkdir -p ../data
 cp -R dist/ded-device/. ../data/
 rm -f ../data/prerendered-routes.json
 
-echo "==> готово: $(du -sh ../data | cut -f1) в DED_CORE_V4-feature-ota-server-update/data"
+echo "==> готово: $(du -sh ../data | cut -f1) в data/"
 echo "==> залить только файловую систему: ./flash-device.sh -p /dev/cu.usbserial-0001 --fs-only"

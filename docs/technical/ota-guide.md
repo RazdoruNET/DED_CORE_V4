@@ -50,7 +50,7 @@ GET /ota/check
 ```json
 {
   "updateAvailable": true,
-  "currentVersion": "4.0.0",
+  "currentVersion": "4.0.16",
   "mode": "AUTO",
   "newVersion": "0.0.2",
   "size": 1234567,
@@ -72,7 +72,7 @@ GET /ota/status
 **Ответ:**
 ```json
 {
-  "currentVersion": "4.0.0",
+  "currentVersion": "4.0.16",
   "mode": "AUTO",
   "initialized": true,
   "updateMode": false
@@ -270,4 +270,4 @@ void TaskServerCode(void * parameter) {
 
 **Версия OTA системы:** 1.0  
 **Дата:** Май 2026  
-**Совместимость:** DED_CORE_V4 4.0.0+
+**Совместимость:** DED_CORE_V4 4.0.16+
