@@ -57,9 +57,6 @@ jobs:
   firmware:
     name: Сборка прошивки
     runs-on: ubuntu-latest
-    # Пока сборка не проверена в CI, падение джобы не блокирует merge.
-    # Уберите continue-on-error, как только джоба станет зелёной.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
