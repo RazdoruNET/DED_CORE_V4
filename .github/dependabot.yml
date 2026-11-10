@@ -10,6 +10,14 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: deps
+    # Мажоры Angular — это миграция (ng update + правка кода + сборка), а не
+    # обновление версии в package.json. Бот приносил по одному пакету Angular
+    # на PR, и каждый такой PR проходил CI, потому что фронт в CI не собирается.
+    # Мажоры обновляем руками, миноры и патчи — как раньше.
+    ignore:
+      - dependency-name: "@angular/*"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
