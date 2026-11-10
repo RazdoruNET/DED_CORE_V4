@@ -8,12 +8,23 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Пакеты Angular обязаны быть одной версии: compiler-cli принимает ровно тот же
+    # compiler, что стоит в проекте. Когда бот приносил их по одному, половина PR
+    # обновляла compiler/core, а compiler-cli оставался старым — и `npm ci` в сборке
+    # блока падал с ERESOLVE. Миноры и патчи приходят одним PR.
+    groups:
+      angular:
+        patterns:
+          - "@angular/*"
+        update-types:
+          - minor
+          - patch
     commit-message:
       prefix: deps
     # Мажоры Angular — это миграция (ng update + правка кода + сборка), а не
-    # обновление версии в package.json. Бот приносил по одному пакету Angular
-    # на PR, и каждый такой PR проходил CI, потому что фронт в CI не собирается.
-    # Мажоры обновляем руками, миноры и патчи — как раньше.
+    # обновление версии в package.json. Обновляем их руками; миноры и патчи —
+    # ботом, одним PR на всю группу (groups выше). Набор проверяет job
+    # «Сборка фронта» в security.yml, поэтому несовместимый не пройдёт.
     ignore:
       - dependency-name: "@angular/*"
         update-types:
