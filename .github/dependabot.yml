@@ -18,6 +18,11 @@ updates:
       - dependency-name: "@angular/*"
         update-types:
           - version-update:semver-major
+      # TypeScript 7 — другой компилятор, а не новая версия: переход требует
+      # смены @angular/build и проверки сборки.
+      - dependency-name: "typescript"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
