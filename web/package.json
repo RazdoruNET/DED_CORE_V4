@@ -11,7 +11,7 @@
     "@angular/common": "20.3.34",
     "@angular/compiler": "20.3.34",
     "@angular/core": "20.3.35",
-    "@angular/platform-browser": "20.3.34",
+    "@angular/platform-browser": "20.3.35",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
