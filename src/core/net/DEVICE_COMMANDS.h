@@ -209,6 +209,33 @@ String mapPointJson(int cart, int point) {
   return json;
 }
 
+// Границы и подрезка значений объявлены до первой функции, которая ими
+// пользуется: applyMapPoint стоит выше блока настроек.
+// Границы значений: те же, что у полей вшитой страницы и ползунков карты в приложении.
+// Значение вне диапазона исказило бы зажигание, поэтому его молча подрезаем.
+#define SETTINGS_MAX_RPM_MIN 1000
+#define SETTINGS_MAX_RPM_MAX 20000
+#define SETTINGS_ANGLE_MIN 0
+#define SETTINGS_ANGLE_MAX 60
+// Продолжительность сигнала прошивка сравнивает с micros(), то есть это микросекунды.
+#define SETTINGS_FLASH_TIME_MIN 0
+#define SETTINGS_FLASH_TIME_MAX 20000
+#define SETTINGS_FILTER_MIN 0
+#define SETTINGS_FILTER_MAX 100
+#define SETTINGS_SERVO_RPM_MIN 0
+#define SETTINGS_SERVO_RPM_MAX 20000
+#define SETTINGS_SERVO_PERCENT_MIN 0
+#define SETTINGS_SERVO_PERCENT_MAX 255
+#define SETTINGS_SERVO_TYPE_MAX 1
+
+int clampSetting(int value, int low, int high) {
+  if (value < low) {
+    return low;
+  }
+
+  return value > high ? high : value;
+}
+
 // Запись точки карты: тем же способом, что и HTTP-маршрут /update_card вшитой страницы
 // (core/servers/DEVICE_API_ROUTES.h), но для явно указанной карты и с записью в NVS.
 // Ключи обязаны совпадать с загрузкой в config/CONFIG.h — иначе правка не переживёт
@@ -265,31 +292,6 @@ bool applyMapPoint(int cart, int point, float rpm, float angle, float angleAdjus
 //
 // Ключи NVS обязаны совпадать с загрузкой в config/CONFIG.h — настройка, записанная
 // другим ключом, жила бы до первой перезагрузки.
-
-// Границы значений: те же, что у полей вшитой страницы и ползунков карты в приложении.
-// Значение вне диапазона исказило бы зажигание, поэтому его молча подрезаем.
-#define SETTINGS_MAX_RPM_MIN 1000
-#define SETTINGS_MAX_RPM_MAX 20000
-#define SETTINGS_ANGLE_MIN 0
-#define SETTINGS_ANGLE_MAX 60
-// Продолжительность сигнала прошивка сравнивает с micros(), то есть это микросекунды.
-#define SETTINGS_FLASH_TIME_MIN 0
-#define SETTINGS_FLASH_TIME_MAX 20000
-#define SETTINGS_FILTER_MIN 0
-#define SETTINGS_FILTER_MAX 100
-#define SETTINGS_SERVO_RPM_MIN 0
-#define SETTINGS_SERVO_RPM_MAX 20000
-#define SETTINGS_SERVO_PERCENT_MIN 0
-#define SETTINGS_SERVO_PERCENT_MAX 255
-#define SETTINGS_SERVO_TYPE_MAX 1
-
-int clampSetting(int value, int low, int high) {
-  if (value < low) {
-    return low;
-  }
-
-  return value > high ? high : value;
-}
 
 // Флаг настройки: приложение шлёт 0/1, в памяти он лежит булевым.
 bool settingFlag(JsonVariant value) {
