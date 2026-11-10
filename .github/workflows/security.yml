@@ -54,6 +54,26 @@ jobs:
         working-directory: web
         run: npm audit --omit=dev --audit-level=high
 
+  frontend-build:
+    name: Сборка фронта
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # Именно установка по lock-файлу, а не только audit: несовместимые версии
+      # Angular (compiler и compiler-cli разных патчей) видны только здесь, и без
+      # этой проверки такой PR проходил зелёным, а сборка блока падала на npm ci.
+      - name: Установка зависимостей
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+      - name: Сборка
+        working-directory: web
+        run: npm run build
+
   firmware:
     name: Сборка прошивки
     runs-on: ubuntu-latest
