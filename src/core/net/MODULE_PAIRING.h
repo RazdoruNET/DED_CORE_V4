@@ -26,7 +26,9 @@
 #include <WiFi.h>
 
 #include "config/PROPS.h"
-#include "servers/DEVICE_API_ROUTES.h"
+#include "core/ota/HYBRID_OTA.h"
+
+extern HybridOTAManager otaManager;
 
 // Префикс сети сопряжения. По нему модуль ищет блок сканированием.
 #define MODULE_PAIR_PREFIX "DED_PAIR_"
@@ -203,6 +205,44 @@ inline bool fromAccessPoint(AsyncWebServerRequest *request) {
   return client[0] == 192 && client[1] == 168 && client[2] == 4;
 }
 
+// Сравнение без раннего выхода: посимвольный возврат на первом несовпадении
+// даёт лишний канал о значении ключа (так же, как в DEVICE_API_ROUTES.h).
+inline bool keyEquals(const String &left, const String &right) {
+  if (left.length() == 0 || left.length() != right.length()) {
+    return false;
+  }
+
+  unsigned char diff = 0;
+
+  for (size_t i = 0; i < left.length(); i++) {
+    diff |= static_cast<unsigned char>(left[i] ^ right[i]);
+  }
+
+  return diff == 0;
+}
+
+// Право открыть окно: ключ устройства, если блок привязан, иначе — из сети
+// самого блока. Правило то же, что у остальных действий, меняющих состояние
+// (servers/DEVICE_API_ROUTES.h), но проверка своя: модуль сопряжения не должен
+// зависеть от порядка включения заголовков серверов.
+inline bool changeAllowed(AsyncWebServerRequest *request) {
+  const String deviceKey = otaManager.getDeviceKey();
+
+  if (deviceKey.length() == 0) {
+    return fromAccessPoint(request);
+  }
+
+  if (!request->hasHeader("X-Device-Key")) {
+    return false;
+  }
+
+  return keyEquals(request->getHeader("X-Device-Key")->value(), deviceKey);
+}
+
+inline void denyKey(AsyncWebServerRequest *request) {
+  request->send(403, "text/plain", "Нужен ключ устройства (X-Device-Key)");
+}
+
 }  // namespace module_pairing
 
 inline void registerModulePairingRoutes(AsyncWebServer *server) {
@@ -227,8 +267,8 @@ inline void registerModulePairingRoutes(AsyncWebServer *server) {
   // Владелец открывает окно из приложения. Пока блок привязан, нужен ключ
   // устройства; у непривязанного блока действует правило «из сети блока».
   server->on("/module/pair/start", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (!dedCoreChangeAllowed(request)) {
-      dedCoreDenyKey(request);
+    if (!module_pairing::changeAllowed(request)) {
+      module_pairing::denyKey(request);
       return;
     }
 
@@ -240,8 +280,8 @@ inline void registerModulePairingRoutes(AsyncWebServer *server) {
   });
 
   server->on("/module/pair/stop", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (!dedCoreChangeAllowed(request)) {
-      dedCoreDenyKey(request);
+    if (!module_pairing::changeAllowed(request)) {
+      module_pairing::denyKey(request);
       return;
     }
 
