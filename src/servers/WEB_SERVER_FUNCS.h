@@ -3,6 +3,7 @@
 
 #include "WEB_SERVER_VARS.h"
 #include "DEVICE_API_ROUTES.h"
+#include "core/net/MODULE_PAIRING.h"
 #include "core/net/UPDATE_SERVER.h"
 #include "core/migration/MIGRATION_SERVER.h"
 #include "core/net/TLS_HTTP_ROUTES.h"
@@ -58,6 +59,7 @@ void initServer() {
   initServerRoutes();
   initRecoveryServerRoutes();
   registerDeviceApiRoutes(&server);
+  registerModulePairingRoutes(&server);
   registerUpdateRoutes(&server);
   registerMigrationRoutes(&server);
   registerTlsHttpRoutes(&server);
