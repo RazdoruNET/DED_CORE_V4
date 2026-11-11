@@ -39,6 +39,8 @@ export class SettingsComponent {
   readonly selectedPreset = signal(0);
   readonly markMethod = signal<'kick' | 'starter' | 'both'>('kick');
   readonly markScan = this.device.markScan;
+  readonly pairing = signal(false);
+  readonly pairNote = signal('');
 
   readonly patch = computed<Record<string, unknown>>(() => {
     const draft = this.draft();
@@ -205,6 +207,45 @@ export class SettingsComponent {
   applyMarkScan(): void {
     this.device.applyMarkScan();
     this.device.toast('Найденный угол метки применён', 'ok');
+  }
+
+  async startModulePairing(): Promise<void> {
+    if (this.pairing()) {
+      return;
+    }
+
+    this.pairing.set(true);
+    this.pairNote.set('Открываю окно сопряжения…');
+
+    try {
+      const result = await this.device.startModulePairing();
+      const seconds = Math.round(result.windowMs / 1000);
+
+      this.pairNote.set(`Сеть ${result.ssid} открыта на ${seconds} с.`);
+      this.device.toast('Окно сопряжения открыто, включите модуль', 'ok');
+    } catch (error) {
+      this.pairNote.set(errorMessage(error));
+      this.device.toast(errorMessage(error), 'error');
+    } finally {
+      this.pairing.set(false);
+    }
+  }
+
+  async stopModulePairing(): Promise<void> {
+    if (this.pairing()) {
+      return;
+    }
+
+    this.pairing.set(true);
+
+    try {
+      await this.device.stopModulePairing();
+      this.pairNote.set('Окно сопряжения закрыто');
+    } catch (error) {
+      this.pairNote.set(errorMessage(error));
+    } finally {
+      this.pairing.set(false);
+    }
   }
 
   async resetServoError(): Promise<void> {

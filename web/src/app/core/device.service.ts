@@ -644,6 +644,21 @@ export class DeviceService {
     await this.request({ event: 'servo_error' }, 'servo_error', 3000);
   }
 
+  // Сопряжение внешнего модуля. Блок на 90 секунд подменяет точку доступа
+  // сетью DED_PAIR_*, поэтому телефон отключится от блока до конца окна.
+  async startModulePairing(): Promise<{ ssid: string; windowMs: number }> {
+    const result = await this.httpJson<{ data: { ssid: string; window_ms: number } }>(
+      '/module/pair/start',
+      { method: 'POST' },
+    );
+
+    return { ssid: result.data.ssid, windowMs: result.data.window_ms };
+  }
+
+  async stopModulePairing(): Promise<void> {
+    await this.httpText('/module/pair/stop', { method: 'POST' });
+  }
+
   async setDiagnostics(enabled: boolean): Promise<void> {
     await this.request({ event: 'diag', data: { enabled: enabled ? 1 : 0 } }, 'diag', 4000);
   }

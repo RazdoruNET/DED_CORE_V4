@@ -8,20 +8,25 @@
 // X-Device-Key), ни из кадра телеметрии (пароль оттуда убран). Bluetooth тоже не
 // вариант: модуль — не телефон и код сопряжения не вводит.
 //
-// Поэтому по нажатию кнопки на блоке на минуту поднимается открытая сеть
-// сопряжения DED_PAIR_<хвост MAC> с одним маршрутом: GET /module/pair отдаёт
-// имя и пароль основной точки доступа. Кнопка — то же физическое подтверждение,
-// что и у pair_info по Bluetooth: нажать её может только владелец блока.
+// Поэтому блок на время поднимает отдельную открытую сеть DED_PAIR_<хвост MAC>
+// с одним маршрутом: GET /module/pair отдаёт имя и пароль основной точки доступа.
 //
-// Окно короткое и закрывается само; после ответа основная точка доступа
-// возвращается. На время сопряжения телефон владельца отваливается от сети
-// блока — это ожидаемо и длится считанные секунды.
+// Кнопок на блоке нет — корпус закрыт, физического подтверждения быть не может.
+// Окно открывает владелец из приложения: POST /module/pair/start с ключом
+// устройства (X-Device-Key). Ключ есть только у привязанного приложения, то есть
+// окно открывает тот, кто уже владеет блоком. Пока блок не привязан, действует
+// общее правило DEVICE_API_ROUTES.h: менять состояние можно из сети самого блока.
+//
+// Окно короткое и закрывается само, а после ответа модулю основная точка доступа
+// возвращается. На время сопряжения телефон отключается от сети блока: ESP32
+// держит одну точку доступа, и второй одновременно не бывает.
 
 #include <Arduino.h>
 #include <ESPAsyncWebServer.h>
 #include <WiFi.h>
 
 #include "config/PROPS.h"
+#include "servers/DEVICE_API_ROUTES.h"
 
 // Префикс сети сопряжения. По нему модуль ищет блок сканированием.
 #define MODULE_PAIR_PREFIX "DED_PAIR_"
@@ -29,24 +34,23 @@
 // Сколько живёт окно сопряжения, если никто не пришёл.
 #define MODULE_PAIR_WINDOW_MS 90000UL
 
-// Сколько ждём после ответа: модуль должен успеть прочитать ответ и отключиться.
+// Задержка перед подменой точки доступа: ответ на POST /module/pair/start
+// должен уйти в сеть раньше, чем сеть исчезнет.
+#define MODULE_PAIR_SWITCH_DELAY_MS 700UL
+
+// Сколько ждём после ответа модулю: он должен успеть дочитать ответ.
 #define MODULE_PAIR_RESTORE_DELAY_MS 3000UL
-
-// Пауза антидребезга кнопки.
-#define MODULE_PAIR_BUTTON_DEBOUNCE_MS 50UL
-
-// Объявлен в core/recovery/RECOVERY_MODE.h: в режиме восстановления окно
-// сопряжения не открывается, иначе оно заменит сеть DED_RECOVERY.
-extern bool recoveryModeActive;
 
 namespace module_pairing {
 
 bool g_active = false;
+bool g_openPending = false;
+bool g_closePending = false;
+bool g_switchScheduled = false;
+
+unsigned long g_switchAt = 0;
 unsigned long g_windowEndAt = 0;
 unsigned long g_restoreAt = 0;
-bool g_buttonWasDown = false;
-bool g_buttonWasUp = false;
-unsigned long g_buttonChangedAt = 0;
 
 // Имя сети сопряжения уникально для блока: рядом могут стоять два блока,
 // и модуль должен выбрать свой.
@@ -58,10 +62,11 @@ inline String pairApSsid() {
 }
 
 inline bool active() {
-  return g_active;
+  return g_active || g_openPending;
 }
 
-inline void close() {
+// Основная точка доступа возвращается с прежним паролем из NVS.
+inline void restore() {
   if (!g_active) {
     return;
   }
@@ -70,19 +75,18 @@ inline void close() {
   g_windowEndAt = 0;
   g_restoreAt = 0;
 
-  // Возвращаем основную точку доступа. Пароль уже создан в initWifi(),
-  // поэтому восстановление всегда возможно.
-  if (APPSK1.length() >= 8) {
-    WiFi.softAP(APSSID1, APPSK1);
-    Serial.print("Module pairing: closed, AP restored: ");
-    Serial.println(APSSID1);
-  } else {
+  if (APPSK1.length() < 8) {
     Serial.println("Module pairing: closed, AP password is not set");
+    return;
   }
+
+  WiFi.softAP(APSSID1, APPSK1);
+
+  Serial.print("Module pairing: closed, AP restored: ");
+  Serial.println(APSSID1);
 }
 
 inline void open() {
-  // Отдавать модулю нечего: без пароля основной точки доступа окно бессмысленно.
   if (APPSK1.length() < 8) {
     Serial.println("Module pairing: AP password is not set, window skipped");
     return;
@@ -98,7 +102,37 @@ inline void open() {
 
   Serial.print("Module pairing: open AP ");
   Serial.print(pairApSsid());
-  Serial.println(" (no password), press the button again to extend");
+  Serial.println(" (no password)");
+}
+
+inline void scheduleSwitch() {
+  g_switchScheduled = true;
+  g_switchAt = millis() + MODULE_PAIR_SWITCH_DELAY_MS;
+}
+
+// Открыть окно по команде приложения. Если окно уже открыто — продлить.
+inline void requestOpen() {
+  g_closePending = false;
+
+  if (g_active) {
+    g_windowEndAt = millis() + MODULE_PAIR_WINDOW_MS;
+    return;
+  }
+
+  g_openPending = true;
+  scheduleSwitch();
+}
+
+// Закрыть окно досрочно, не дожидаясь таймера.
+inline void requestClose() {
+  g_openPending = false;
+
+  if (!g_active) {
+    return;
+  }
+
+  g_closePending = true;
+  scheduleSwitch();
 }
 
 // Закрыть окно после ответа модулю: ему нужно время дочитать ответ.
@@ -106,56 +140,35 @@ inline void scheduleRestore() {
   g_restoreAt = millis() + MODULE_PAIR_RESTORE_DELAY_MS;
 }
 
-// Вызывается из loop(). Кнопка нажата — открыть (или продлить) окно,
-// истекло время — вернуть основную точку доступа.
+// Вызывается из loop(): отложенная подмена точки доступа и таймеры окна.
 inline void tick() {
-  if (recoveryModeActive) {
+  if (g_switchScheduled && static_cast<int32_t>(millis() - g_switchAt) >= 0) {
+    g_switchScheduled = false;
+
+    if (g_openPending) {
+      g_openPending = false;
+      open();
+    } else if (g_closePending) {
+      g_closePending = false;
+      restore();
+    }
+  }
+
+  if (!g_active) {
     return;
   }
 
-  const bool buttonDown = digitalRead(select_cart_down_pin) == LOW;
-
-  if (buttonDown != g_buttonWasDown) {
-    g_buttonWasDown = buttonDown;
-    g_buttonChangedAt = millis();
-
-    if (!buttonDown) {
-      g_buttonWasUp = true;
-    }
+  if (g_restoreAt != 0 && static_cast<int32_t>(millis() - g_restoreAt) >= 0) {
+    restore();
+    return;
   }
 
-  if (g_active) {
-    if (g_restoreAt != 0 && static_cast<int32_t>(millis() - g_restoreAt) >= 0) {
-      close();
-      return;
-    }
-
-    if (static_cast<int32_t>(millis() - g_windowEndAt) >= 0) {
-      close();
-      return;
-    }
-  }
-
-  // Кнопку, зажатую ещё с включения или после перезагрузки, за нажатие не
-  // считаем: окно открывается только по новому нажатию после отпускания.
-  if (g_buttonWasUp && buttonDown &&
-      static_cast<uint32_t>(millis() - g_buttonChangedAt) >= MODULE_PAIR_BUTTON_DEBOUNCE_MS) {
-    // Одно нажатие — одно окно: удержание кнопки не должно держать сеть
-    // сопряжения открытой бесконечно.
-    g_buttonWasUp = false;
-
-    if (g_active) {
-      g_windowEndAt = millis() + MODULE_PAIR_WINDOW_MS;
-      return;
-    }
-
-    open();
+  if (static_cast<int32_t>(millis() - g_windowEndAt) >= 0) {
+    restore();
   }
 }
 
-// Ответ модулю. Пароль основного доступа отдаём только из сети сопряжения:
-// запрос с домашней сети (STA-интерфейс) сюда не пройдёт, да и окно для него
-// не открывается.
+// Ответ модулю.
 inline String payloadJson() {
   String json = "{\"event\":\"module_pair\",\"data\":{";
   json += "\"ssid\":\"" + APSSID1 + "\",";
@@ -163,6 +176,22 @@ inline String payloadJson() {
   json += "\"host\":\"192.168.4.1\",";
   json += "\"port\":81,";
   json += "\"fw\":\"" FIRMWARE_VERSION "\"";
+  json += "}}";
+
+  return json;
+}
+
+// Ответ приложению: что сейчас с окном.
+inline String stateJson() {
+  const bool windowOpen = active();
+
+  String json = "{\"event\":\"module_pair\",\"data\":{";
+  json += "\"active\":";
+  json += windowOpen ? "1" : "0";
+  json += ",\"ssid\":\"";
+  json += windowOpen ? pairApSsid() : String("");
+  json += "\",\"window_ms\":";
+  json += String(MODULE_PAIR_WINDOW_MS);
   json += "}}";
 
   return json;
@@ -177,10 +206,11 @@ inline bool fromAccessPoint(AsyncWebServerRequest *request) {
 }  // namespace module_pairing
 
 inline void registerModulePairingRoutes(AsyncWebServer *server) {
+  // Модуль забирает параметры основной точки доступа. Маршрут живёт только
+  // в сети сопряжения и только при открытом окне.
   server->on("/module/pair", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (!module_pairing::active() || !module_pairing::fromAccessPoint(request)) {
-      request->send(403, "text/plain",
-                    "Pairing window is closed: press the button on the block");
+      request->send(403, "text/plain", "Pairing window is closed");
       return;
     }
 
@@ -192,6 +222,32 @@ inline void registerModulePairingRoutes(AsyncWebServer *server) {
 
     // Основную точку доступа возвращаем с задержкой: ответ ещё должен уйти.
     module_pairing::scheduleRestore();
+  });
+
+  // Владелец открывает окно из приложения. Пока блок привязан, нужен ключ
+  // устройства; у непривязанного блока действует правило «из сети блока».
+  server->on("/module/pair/start", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
+    module_pairing::requestOpen();
+
+    Serial.println("Module pairing: window requested by the app");
+
+    request->send(200, "application/json", module_pairing::stateJson());
+  });
+
+  server->on("/module/pair/stop", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (!dedCoreChangeAllowed(request)) {
+      dedCoreDenyKey(request);
+      return;
+    }
+
+    module_pairing::requestClose();
+
+    request->send(200, "application/json", module_pairing::stateJson());
   });
 }
 

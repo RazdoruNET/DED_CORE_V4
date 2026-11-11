@@ -133,6 +133,24 @@
       </div>
 
       <div class="card">
+        <header class="card-head"><h2>Модули</h2></header>
+        <div class="fields">
+          <div class="field">
+            <span>Сопряжение модуля</span>
+            <strong class="status-line">{{ pairNote() || 'окно не открывалось' }}</strong>
+            <small>
+              Блок на 90 секунд поднимет сеть DED_PAIR_*, к ней подключится модуль (сервопривод).
+              На это время точка доступа блока исчезнет, и телефон отключится от него.
+            </small>
+          </div>
+          <div class="mark-actions">
+            <button type="button" class="btn is-primary" [disabled]="pairing()" (click)="startModulePairing()">Найти модуль</button>
+            <button type="button" class="btn is-ghost" [disabled]="pairing()" (click)="stopModulePairing()">Закрыть окно</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <header class="card-head"><h2>Тип карты и шаблон</h2></header>
         <div class="fields">
           <div class="field">

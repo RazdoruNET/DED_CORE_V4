@@ -6,11 +6,6 @@
 #include "servers/WIFI_SERVER.h"
 #include "servers/WEB_SERVER_CLEAN.h"
 
-// Режим восстановления поднимает свою точку доступа (DED_RECOVERY). Сопряжение
-// модулей в это время не открываем: ESP32 держит одну точку доступа, и окно
-// DED_PAIR_* снесло бы сеть восстановления.
-bool recoveryModeActive = false;
-
 bool isRecoveryModeActivated() {
   int down_btn = digitalRead(select_cart_down_pin);
   return down_btn == LOW;
@@ -18,7 +13,6 @@ bool isRecoveryModeActivated() {
 
 void enterRecoveryMode() {
   Serial.println("Entering recovery mode");
-  recoveryModeActive = true;
   initRecoveryWifi();
   initRecoveryServer();
 }
