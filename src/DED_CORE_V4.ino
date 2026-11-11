@@ -142,6 +142,9 @@ void loop() {
   handleMoto();
   handleSerialProvision();
 
+  // Окно сопряжения внешних модулей: открывается кнопкой на блоке.
+  module_pairing::tick();
+
 #ifndef DED_CORE_NO_BLE
   handleBleCommands();
   handleBleTelemetry();
