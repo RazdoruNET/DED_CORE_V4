@@ -80,6 +80,11 @@ extern String APSSID1;
 extern String APPSK1;
 extern String APSSID;
 extern String APPSK;
+
+// Имя или пароль точки доступа изменены и ещё не применены к работающей сети.
+// Признак ставит applyApSettings(), снимает MODULE_PAIRING::tick(): сначала
+// новые параметры уходят сопряжённым модулям, потом перезапускается сеть.
+extern bool ap_credentials_changed;
 extern bool WIFI_AUTO_UPDATE_ENABLED;
 // Удалённая диагностика по WiFi: блок сам выходит на сервис, когда телефона рядом нет.
 // Режим включается на время и живёт без Bluetooth, точки доступа и веб-сервера — иначе

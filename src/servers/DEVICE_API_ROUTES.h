@@ -26,6 +26,9 @@
 
 extern HybridOTAManager otaManager;
 
+// Определение — core/net/DEVICE_COMMANDS.h (подключается раньше в основном файле).
+void applyApSettings(const String &ssid, const String &pass);
+
 // --- Проверка права на изменение состояния ------------------------------------
 //
 // Пароль точки доступа — не аутентификация: его знает каждый, кто подключился к сети
@@ -468,12 +471,12 @@ server->on("/wifi", HTTP_GET, [] (AsyncWebServerRequest *request)
       return;
     }
 
-    if (request->hasParam("ssid") && request->hasParam("appsk")) 
+    if (request->hasParam("ssid")) 
     {
-       APSSID1 = request->getParam("ssid")->value();
-       APPSK1 = request->getParam("appsk")->value();
-       preferences.putString("APSSID1",APSSID1);
-       preferences.putString("APPSK1",APPSK1);
+       // Через общий обработчик: он ставит признак смены, по которому
+       // сопряжённые модули получают новые параметры до перезапуска сети.
+       applyApSettings(request->getParam("ssid")->value(),
+                       request->hasParam("appsk") ? request->getParam("appsk")->value() : String(""));
     }
     request->send(200, "text/plain", "OK");
   });

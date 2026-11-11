@@ -61,6 +61,7 @@ String APPSK1 = "";
 
 String APSSID = "";
 String APPSK = "";
+bool ap_credentials_changed = false;
 bool WIFI_AUTO_UPDATE_ENABLED = false;
 bool DIAGNOSTICS_WIFI_ENABLED = false;
 String WIFI_UPDATE_SSID = "";

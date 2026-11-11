@@ -10,6 +10,7 @@
 #include "config/PROPS.h"
 #include "core/ota/HYBRID_OTA.h"
 #include "core/net/DEVICE_COMMANDS.h"
+#include "core/net/MODULE_PAIRING.h"
 
 // Use external variables from WEB_SOCKET_VARS.h
 extern WebSocketsServer webSocket;
@@ -38,9 +39,13 @@ bool handleClientCommand(const String &dataStr, String &out) {
 void onEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   switch (type) {
     case WStype_DISCONNECTED:
+      module_pairing::clearClient(num);
       Serial.println("WebSocket disconnected");
       break;
     case WStype_CONNECTED:
+      // Доверие проверяется кадром module_hello, а не фактом подключения:
+      // к точке доступа может подключиться кто угодно, кто знает её пароль.
+      module_pairing::clearClient(num);
       Serial.println("WebSocket connected");
       break;
     case WStype_BIN:
@@ -48,8 +53,15 @@ void onEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
       break;
     case WStype_TEXT:
     {
+      // Подтверждение связи от сопряжённого модуля разбирается здесь: нужен
+      // номер клиента, чтобы запомнить, кому можно присылать смену сети.
+      if (module_pairing::handleHello(num, reinterpret_cast<const char *>(payload), length)) {
+        break;
+      }
+
       // Встроенный фронт шлёт полезную нагрузку с экранированными скобками.
-      String dataStr = String((char*)payload);
+      // Длину берём из кадра: payload не завершается нулём.
+      String dataStr(reinterpret_cast<const char *>(payload), length);
       dataStr.replace("\\", "");
       dataStr.replace("}\"", "}");
       dataStr.replace("\"{", "{");

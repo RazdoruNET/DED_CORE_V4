@@ -383,14 +383,25 @@ void applySettingsPatch(JsonObject &data) {
 // со телефона, не заходя на его страницу. Пустое поле означает «оставить как было».
 
 void applyApSettings(const String &ssid, const String &pass) {
-  if (ssid.length() > 0) {
+  bool changed = false;
+
+  if (ssid.length() > 0 && ssid != APSSID1) {
     APSSID1 = ssid;
     preferences.putString("APSSID1", APSSID1);
+    changed = true;
   }
 
-  if (pass.length() > 0) {
+  if (pass.length() > 0 && pass != APPSK1) {
     APPSK1 = pass;
     preferences.putString("APPSK1", APPSK1);
+    changed = true;
+  }
+
+  // Работающую точку доступа перезапускает MODULE_PAIRING::tick(): сначала новые
+  // параметры уходят сопряжённым модулям, иначе после смены пароля они останутся
+  // со старой связкой и будут искать блок заново.
+  if (changed) {
+    ap_credentials_changed = true;
   }
 
   Serial.print("AP name: ");
