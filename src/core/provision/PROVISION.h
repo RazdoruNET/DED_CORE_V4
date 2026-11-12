@@ -45,18 +45,7 @@ void handleSerialProvision() {
     return;
   }
 
-  // Команды устройства по проводу: тот же протокол, что по Bluetooth. Мастеру это нужно,
-  // чтобы настроить или проверить блок без приложения (например, включить диагностику).
-  {
-    String out;
-
-    if (handleDeviceCommand(line, out) && out.length() > 0) {
-      Serial.println(out);
-    }
-
-    return;
-  }
-
+  // Материал TLS по проводу: сертификат и ключ приходят одной строкой.
   if (root["event"] == "tls") {
     String error;
     if (applyTlsMaterial(String(line), error)) {
@@ -67,6 +56,16 @@ void handleSerialProvision() {
       Serial.println(error);
     }
     return;
+  }
+
+  // Команды устройства по проводу: тот же протокол, что по Bluetooth. Мастеру это нужно,
+  // чтобы настроить или проверить блок без приложения (например, включить диагностику).
+  // Ветка стоит последней: безусловный return выше делал установку сертификата
+  // по проводу недостижимой.
+  String out;
+
+  if (handleDeviceCommand(line, out) && out.length() > 0) {
+    Serial.println(out);
   }
 }
 

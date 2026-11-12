@@ -31,6 +31,20 @@ extern HybridOTAManager otaManager;
 
 #define TLS_HTTP_MAX_BODY 16384
 
+// Долгую операцию (рукопожатие TLS к сервису) выполняет отдельная задача:
+// определения — servers/DEVICE_API_ROUTES.h.
+typedef void (*DeviceJobFn)();
+bool startDeviceJob(DeviceJobFn job, const char *name, uint32_t stack);
+
+void tlsRefreshJob() {
+  String error;
+
+  if (!tlsFetchFromService(error)) {
+    Serial.print("TLS: refresh failed: ");
+    Serial.println(error);
+  }
+}
+
 // Права: из сети самой точки доступа (туда пускает пароль сети блока) либо с ключом
 // устройства. Так сертификат не подменит сосед по домашней сети.
 bool tlsHttpKeyEquals(const String &a, const String &b) {
@@ -57,6 +71,10 @@ bool tlsHttpKeyMatches(AsyncWebServerRequest *request) {
   return tlsHttpKeyEquals(request->getHeader("X-Device-Key")->value(), deviceKey);
 }
 
+// Определение — core/net/MODULE_PAIRING.h: модуль сопряжения подключается позже,
+// поэтому объявляем проверку здесь.
+bool devicePairingWindowOpen();
+
 bool tlsHttpRequestAllowed(AsyncWebServerRequest *request) {
   if (tlsHttpKeyMatches(request)) {
     return true;
@@ -65,6 +83,12 @@ bool tlsHttpRequestAllowed(AsyncWebServerRequest *request) {
   // Из сети блока — только пока ключа нет: привязанный блок меняет сертификат
   // и параметры лишь по ключу устройства.
   if (otaManager.getDeviceKey().length() > 0) {
+    return false;
+  }
+
+  // Во время окна сопряжения модулей сеть блока открыта: адрес клиента не доказывает
+  // доступ владельца, поэтому остаётся только ключ устройства.
+  if (devicePairingWindowOpen()) {
     return false;
   }
 
@@ -123,11 +147,16 @@ void registerTlsHttpRoutes(AsyncWebServer *server) {
 
       if (index == 0) {
         body = "";
-        body.reserve(total + 1);
 
+        // Лимит проверяем ДО reserve: объявленный в запросе размер иначе заставлял
+        // устройство выделять под тело сколько угодно памяти.
         if (total > TLS_HTTP_MAX_BODY || !tlsHttpRequestAllowed(request)) {
+          request->send(total > TLS_HTTP_MAX_BODY ? 413 : 403, "text/plain",
+                        total > TLS_HTTP_MAX_BODY ? "Тело запроса слишком большое" : "Нужен ключ устройства");
           return;
         }
+
+        body.reserve(total + 1);
       }
 
       if (!tlsHttpRequestAllowed(request) || total > TLS_HTTP_MAX_BODY) {
@@ -160,11 +189,13 @@ void registerTlsHttpRoutes(AsyncWebServer *server) {
 
       if (index == 0) {
         body = "";
-        body.reserve(total + 1);
-      }
 
-      if (total > 1024 || !tlsHttpRequestAllowed(request)) {
-        return;
+        if (total > 1024 || !tlsHttpRequestAllowed(request)) {
+          request->send(403, "text/plain", "Тело запроса слишком большое или нет прав");
+          return;
+        }
+
+        body.reserve(total + 1);
       }
 
       body.concat((const char *)data, len);
@@ -204,13 +235,14 @@ void registerTlsHttpRoutes(AsyncWebServer *server) {
 
       if (index == 0) {
         body = "";
-        body.reserve(total + 1);
         denied = total > 512 || !tlsHttpRequestAllowed(request);
 
         if (denied) {
           request->send(403, "application/json", "{\"result\":\"error\",\"error\":\"forbidden\"}");
           return;
         }
+
+        body.reserve(total + 1);
       }
 
       if (denied) {
@@ -255,14 +287,15 @@ void registerTlsHttpRoutes(AsyncWebServer *server) {
       return;
     }
 
-    String error;
-    if (tlsFetchFromService(error)) {
-      request->send(200, "text/plain", "Сертификат получен, HTTPS перезапускается");
+    // Запрос к сервису — это рукопожатие TLS на 16–32 КБ: в задаче AsyncTCP его стек
+    // и куча не выдержат, а ожидание часов остановило бы интерфейс. Поэтому работа
+    // уходит в свою задачу, а сертификат применяется и HTTPS перезапускается там же.
+    if (!startDeviceJob(tlsRefreshJob, "TaskTlsRefresh", 24576)) {
+      request->send(503, "text/plain", "Не хватает памяти на запрос сертификата");
       return;
     }
 
-    String reply = "Не удалось получить сертификат: " + error;
-    request->send(502, "text/plain", reply);
+    request->send(202, "text/plain", "Запрос сертификата отправлен, HTTPS перезапустится после ответа");
   });
 }
 

@@ -190,7 +190,17 @@ static bool updateAuthorized = false;
 // — просто адрес по умолчанию у ESP32, а пароль точки доступа знает каждый, кто к ней
 // подключился. Поэтому признак используется только как «устройство ещё не привязано,
 // настраивать нечем» — см. updateRequestAllowed.
+// Определение — core/net/MODULE_PAIRING.h: модуль сопряжения подключается позже,
+// поэтому объявляем проверку здесь.
+bool devicePairingWindowOpen();
+
 bool updateFromAccessPoint(AsyncWebServerRequest *request) {
+  // Во время окна сопряжения модулей сеть блока открыта — «из сети блока» ничего
+  // не доказывает, образ принимаем только по ключу устройства.
+  if (devicePairingWindowOpen()) {
+    return false;
+  }
+
   IPAddress client = request->client()->remoteIP();
   return client[0] == 192 && client[1] == 168 && client[2] == 4;
 }
@@ -239,8 +249,8 @@ void registerUpdateRoutes(AsyncWebServer *server) {
     [](AsyncWebServerRequest *request) {
       // Итог отдаём, когда тело уже принято и записано (см. обработчик тела).
       if (!updateAuthorized) {
-        request->send(403, "text/plain",
-          "Нужен ключ устройства (X-Device-Key): обновление из сети блока доступно только непривязанному блоку.");
+        // Ответ уже отправлен в обработчике тела (нет прав, идёт обновление или
+        // работает двигатель); здесь дублировать его нельзя.
         return;
       }
 
@@ -251,9 +261,20 @@ void registerUpdateRoutes(AsyncWebServer *server) {
     nullptr,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
       if (index == 0) {
-        updateAuthorized = updateRequestAllowed(request);
+        updateAuthorized = updateRequestAllowed(request) &&
+                           !otaManager.isUpdating() &&
+                           RPM <= 100;
 
         if (!updateAuthorized) {
+          // Ответ отправляем сразу: иначе клиент видит только оборванное соединение.
+          if (!updateRequestAllowed(request)) {
+            request->send(403, "text/plain", "Нужен ключ устройства (X-Device-Key)");
+          } else if (RPM > 100) {
+            request->send(409, "text/plain", "Двигатель работает — обновление отложено");
+          } else {
+            request->send(409, "text/plain", "Обновление уже идёт");
+          }
+
           return;
         }
 

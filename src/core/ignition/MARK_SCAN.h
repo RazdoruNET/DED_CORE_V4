@@ -124,7 +124,7 @@ const char *markScanStateName() {
 String markScanJson() {
   String json = "{\"event\":\"mark_scan\",\"data\":{";
   json += "\"state\":\"" + String(markScanStateName()) + "\",";
-  json += "\"method\":\"" + markScanMethod + "\",";
+  json += "\"method\":\"" + jsonEscape(markScanMethod) + "\",";
   json += "\"candidate\":" + String(markScanCandidate()) + ",";
   json += "\"attempt\":" + String(markScanIndex + 1) + ",";
   json += "\"total\":" + String(MARK_SCAN_CANDIDATES_COUNT) + ",";
@@ -133,7 +133,7 @@ String markScanJson() {
   json += "\"caught\":" + String(markScanCaught) + ",";
   json += "\"best\":" + String(markScanBest) + ",";
   json += "\"init_angle\":" + String(Init_angle) + ",";
-  json += "\"note\":\"" + markScanNote + "\"";
+  json += "\"note\":\"" + jsonEscape(markScanNote) + "\"";
   json += "}}";
 
   return json;

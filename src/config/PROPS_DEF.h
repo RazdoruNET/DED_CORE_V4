@@ -13,7 +13,14 @@ int QS_time = 135;
 
 boolean TROT_SENSER = true;
 boolean INIT_SYSTEM = true;
-boolean SOUND = false;
+// SOUND = false — плата без пищалки и без шифт-лайта: GPIO32 остаётся кнопкой «карта
+// вверх» (см. core/ignition/Init.h и core/handlers/HANDLERS.h). Вариант с пищалкой
+// собирается как `-DDED_CORE_SOUND=true` без правки исходников: тогда GPIO32 — выход,
+// а задача аварийной сигнализации (core/tasks/AlarmTask.h) создаётся в initSystemTasks().
+#ifndef DED_CORE_SOUND
+#define DED_CORE_SOUND false
+#endif
+boolean SOUND = DED_CORE_SOUND;
 
 int fps = 0;
 int fps_time = 0;
@@ -59,8 +66,6 @@ String APSSID1 = "DED_BOX_V4";
 // не поднимается, пока значение не сгенерировано.
 String APPSK1 = "";
 
-String APSSID = "";
-String APPSK = "";
 bool ap_credentials_changed = false;
 bool WIFI_AUTO_UPDATE_ENABLED = false;
 bool DIAGNOSTICS_WIFI_ENABLED = false;

@@ -12,7 +12,13 @@ boolean loadConfig() {
   String quick_adjustment_chars = "qa";
 
 
+  // Индекс карты — это ещё и индекс массива: значение из NVS могло остаться
+  // испорченным от прежней прошивки или после записи за границу.
   active_cart = preferences.getInt("active_cart", active_cart);
+
+  if (active_cart < 0 || active_cart > 2) {
+    active_cart = 0;
+  }
 
   type = preferences.getInt("type",type);
   max_rpm_angle_kiker = preferences.getInt("max_rpm_ang_k",max_rpm_angle_kiker);
@@ -34,8 +40,8 @@ boolean loadConfig() {
   Servo_rpm = preferences.getInt("servo_rpm",Servo_rpm);
   Servo_percent = preferences.getInt("servo_perc",Servo_percent);
   
-  APSSID = preferences.getString("APSSID",APSSID);
-  APPSK = preferences.getString("APPSK",APPSK);
+  // APSSID/APPSK заводской прошивки не читаем: точка доступа работает с APSSID1/APPSK1,
+  // а эти ключи писал только убранный маршрут /wifi/updator.
   WIFI_AUTO_UPDATE_ENABLED = preferences.getBool("wifi_auto", WIFI_AUTO_UPDATE_ENABLED);
   DIAGNOSTICS_WIFI_ENABLED = preferences.getBool("diag_en", DIAGNOSTICS_WIFI_ENABLED);
   WIFI_UPDATE_SSID = preferences.getString("wifi_ssid", WIFI_UPDATE_SSID);

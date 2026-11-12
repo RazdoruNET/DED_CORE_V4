@@ -33,6 +33,13 @@ static unsigned long bleLastWifiNotify = 0;
 // Что отправлять следующим кадром состояния: сеть или сведения о прошивке.
 static bool bleShowWifiState = true;
 
+// Bluetooth остановлен, чтобы отдать память под TLS. Флаг ставится ДО deinit():
+// loop() проверяет его перед каждым обращением к bleTelemetry, иначе он мог вызвать
+// notify() на уже освобождённом объекте.
+static bool bleSuspended = false;
+
+void initBleServer();
+
 class DedCoreBleServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* server) override {
     bleConnected = true;
@@ -77,7 +84,7 @@ class DedCoreBleCommandCallbacks : public NimBLECharacteristicCallbacks {
 
 // Ответ на команду по Bluetooth: только уведомлением, канал запроса и есть канал ответа.
 void bleNotify(const String &body) {
-  if (!bleConnected || bleTelemetry == nullptr) {
+  if (bleSuspended || !bleConnected || bleTelemetry == nullptr) {
     return;
   }
 
@@ -134,7 +141,7 @@ bool blePresenceRecent() {
 
 // Вызывается из loop(): здесь обычный стек, места хватает и на разбор JSON, и на запись в NVS.
 void handleBleCommands() {
-  if (bleCommandQueue == nullptr) {
+  if (bleSuspended || bleCommandQueue == nullptr) {
     return;
   }
 
@@ -190,26 +197,24 @@ void handleBleCommands() {
   }
 }
 
-// Bluetooth остановлен, чтобы отдать память под TLS.
-static bool bleSuspended = false;
-
-void initBleServer();
-
 bool bleClientConnected() {
   return bleConnected;
 }
 
 bool releaseBleMemory() {
-  if (bleServer == nullptr) {
+  if (bleServer == nullptr || bleSuspended) {
     return false;
   }
 
+  // Порядок важен: сначала флаг, потом освобождение. Иначе loop() успевает войти
+  // в handleBleTelemetry() и обратиться к уже удалённому bleTelemetry.
+  bleSuspended = true;
   bleConnected = false;
+
   NimBLEDevice::deinit(true);
 
   bleServer = nullptr;
   bleTelemetry = nullptr;
-  bleSuspended = true;
 
   Serial.printf("BLE released for TLS: free=%u maxAlloc=%u\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
   return true;
@@ -220,8 +225,9 @@ void restoreBleMemory() {
     return;
   }
 
-  bleSuspended = false;
+  // Флаг снимаем после инициализации: пока стек поднимается, кадры отправлять некуда.
   initBleServer();
+  bleSuspended = false;
 
   Serial.printf("BLE restored: free=%u maxAlloc=%u\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
 }
@@ -256,7 +262,7 @@ void initBleServer() {
 
 // Периодически шлём показания: тот же набор полей, что и в WS-сообщении прошивки.
 void handleBleTelemetry() {
-  if (!bleConnected || bleTelemetry == nullptr) {
+  if (bleSuspended || !bleConnected || bleTelemetry == nullptr) {
     return;
   }
 

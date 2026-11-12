@@ -470,6 +470,14 @@ inline void denyKey(AsyncWebServerRequest *request) {
 
 }  // namespace module_pairing
 
+// Окно сопряжения открыто. На это время основная точка доступа подменена открытой
+// сетью DED_PAIR_*, поэтому «запрос пришёл из 192.168.4.0/24» больше не доказывает,
+// что рядом владелец: к открытой сети может подключиться кто угодно в радиусе.
+// Пока окно открыто, остальные проверки прав обязаны требовать ключ устройства.
+inline bool devicePairingWindowOpen() {
+  return module_pairing::active();
+}
+
 inline void registerModulePairingRoutes(AsyncWebServer *server) {
   // Модуль забирает параметры основной точки доступа. Маршрут живёт только
   // в сети сопряжения и только при открытом окне.

@@ -16,6 +16,9 @@
 
 static unsigned long diagnosticsLastTick = 0;
 static unsigned long diagnosticsStartedEpoch = 0;
+// Когда режим включён в этом запуске: нужно, если время включения в NVS не записалось
+// (часы не были выставлены) — иначе ограничение по времени не сработает никогда.
+static unsigned long diagnosticsStartedAt = 0;
 static unsigned long diagnosticsLastState = 0;
 static bool diagnosticsBleReleased = false;
 static bool diagnosticsWasActive = false;
@@ -26,23 +29,9 @@ bool diagnosticsUplinkEnabled() {
 }
 
 /// Экранирование строки для JSON: в настройках кавычек нет, но имя сети может быть любым.
+/// Реализация общая с кадрами устройства — core/net/DEVICE_COMMANDS.h.
 String diagnosticsEscape(const String &value) {
-  String out;
-
-  for (unsigned int index = 0; index < value.length(); index++) {
-    char symbol = value[index];
-
-    if (symbol == '"' || symbol == '\\') {
-      out += '\\';
-      out += symbol;
-    } else if (symbol == '\n') {
-      out += "\\n";
-    } else {
-      out += symbol;
-    }
-  }
-
-  return out;
+  return jsonEscape(value);
 }
 
 /// Снимок настроек блока: его видит оператор.
@@ -216,20 +205,23 @@ void diagnosticsConnectWifi() {
 bool diagnosticsModeExpired() {
   if (diagnosticsStartedEpoch == 0) {
     diagnosticsStartedEpoch = preferences.getULong("diag_at", 0);
-  }
 
-  if (diagnosticsStartedEpoch == 0) {
-    return false;
+    // Время включения в NVS не записалось (часы ещё не были выставлены). Считаем
+    // ограничение от запуска: иначе блок навсегда остался бы без точки доступа
+    // и без Bluetooth — в этом режиме их нет.
+    if (diagnosticsStartedEpoch == 0) {
+      diagnosticsStartedAt = millis();
+    }
   }
 
   // Время берём из часов: millis() перезагрузку не переживает, а режим хранится в NVS.
   time_t now = time(nullptr);
 
-  if (now < 1600000000) {
-    return false;
+  if (diagnosticsStartedEpoch != 0 && now >= 1600000000) {
+    return (unsigned long) now > diagnosticsStartedEpoch + DIAGNOSTICS_MAX_MINUTES * 60;
   }
 
-  return (unsigned long) now > diagnosticsStartedEpoch + DIAGNOSTICS_MAX_MINUTES * 60;
+  return (millis() - diagnosticsStartedAt) > DIAGNOSTICS_MAX_MINUTES * 60UL * 1000UL;
 }
 
 /// Выключить режим и перезагрузиться: обычная работа вернётся, Bluetooth поднимется снова.
@@ -276,6 +268,17 @@ void runDiagnosticsUplinkPass() {
   String response;
 
   int code = diagnosticsRequest(client, base + "/commands", "{}", response);
+
+  // Запрос прошёл — значит часы уже выставлены (иначе TLS не поднялся бы). Только
+  // теперь можно записать время включения режима: при включении из приложения часы
+  // обычно ещё не идут, и в NVS попадал ноль.
+  if (code == HTTP_CODE_OK && diagnosticsStartedEpoch == 0) {
+    diagnosticsStartedEpoch = (unsigned long) time(nullptr);
+
+    if (diagnosticsStartedEpoch != 0) {
+      preferences.putULong("diag_at", diagnosticsStartedEpoch);
+    }
+  }
 
   if (code != HTTP_CODE_OK) {
     Serial.printf("remote diagnostics: commands failed, code=%d free=%u\n", code, ESP.getFreeHeap());

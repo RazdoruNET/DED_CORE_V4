@@ -54,6 +54,18 @@ static String tlsKeyPem;
 static bool tlsRestartPending = false;
 static unsigned long tlsLastBroadcast = 0;
 
+// Срок действия сертификата и наличие файла меняются раз в сутки, а
+// tlsHandleCertificateMaintenance() вызывается из цикла задачи сервера каждые 2 мс.
+// Без кеша это чтение NVS (под общим мьютексом) и обход ФС сотни раз в секунду.
+static bool tlsCertCacheValid = false;
+static unsigned long tlsCertCacheAt = 0;
+static bool tlsCertCachePresent = false;
+static int tlsCertCacheDays = -1;
+
+void tlsInvalidateCertificateCache() {
+  tlsCertCacheValid = false;
+}
+
 bool tlsIsRunning() {
   return tlsServer != nullptr;
 }
@@ -290,9 +302,15 @@ bool applyTlsMaterial(const String &body, String &error) {
     notAfter = root["data"]["notAfter"].as<uint32_t>();
   }
 
-  preferences.putUInt(DED_CORE_TLS_EXPIRY_KEY, notAfter);
+  // Если срок не передали, прежнее значение не затираем: по нему блок понимает,
+  // что сертификат пора менять. Иначе автопродление выключается до следующей
+  // установки материала с указанным сроком.
+  if (notAfter != 0) {
+    preferences.putUInt(DED_CORE_TLS_EXPIRY_KEY, notAfter);
+  }
 
   tlsRestartPending = true;
+  tlsInvalidateCertificateCache();
   return true;
 }
 
@@ -495,8 +513,15 @@ void tlsHandleCertificateMaintenance() {
     return;
   }
 
-  int daysLeft = tlsCertificateDaysLeft();
-  bool needRefresh = !tlsIsRunning() || !DEVICE_FS.exists(DED_CORE_TLS_CERT_FILE) ||
+  if (!tlsCertCacheValid || millis() - tlsCertCacheAt >= 60000UL) {
+    tlsCertCacheValid = true;
+    tlsCertCacheAt = millis();
+    tlsCertCacheDays = tlsCertificateDaysLeft();
+    tlsCertCachePresent = DEVICE_FS.exists(DED_CORE_TLS_CERT_FILE);
+  }
+
+  int daysLeft = tlsCertCacheDays;
+  bool needRefresh = !tlsIsRunning() || !tlsCertCachePresent ||
                      (daysLeft >= 0 && daysLeft < DED_CORE_TLS_RENEW_DAYS);
 
   if (!needRefresh) {

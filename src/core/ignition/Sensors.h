@@ -32,9 +32,13 @@ void handleRpm()
         timePerDegree = __micros - oldRpmMicro;
 
         int one_percent = timePrePerDegree / 100;
-        int actual = timePerDegree / one_percent;
 
-        if (RPM < 200 || actual > filter || preOldRpmMicro == 0)
+        // На первом импульсе после старта и после сброса (500 мс без сигнала)
+        // предыдущего периода ещё нет: one_percent == 0, и деление на него роняло
+        // блок. Нулевой период (два фронта в одну микросекунду) отсекается ниже.
+        int actual = (one_percent != 0) ? (timePerDegree / one_percent) : 0;
+
+        if ((RPM < 200 || actual > filter || preOldRpmMicro == 0) && timePerDegree > 0)
         {
           RPM = fix_micros / timePerDegree;
           preOldRpmMicro = oldRpmMicro;

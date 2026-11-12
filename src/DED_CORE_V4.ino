@@ -122,16 +122,25 @@ void setup()
 // wss на 443 (PWA по HTTPS) и Bluetooth. Команда приходит по одному каналу, а её ответ
 // нужен всем: владелец может держать открытым и приложение, и страницу блока.
 void sendDeviceFrame(const String &frame) {
+#ifndef WEBSOCKETS_SERVER_CLIENT_MAX
+#define WEBSOCKETS_SERVER_CLIENT_MAX 5
+#endif
+
+  // sendTXT принимает неконстантную строку: отдаём копию, как и раньше.
   String copy = frame;
 
-  for (int i = 0; i <= 100; i++) {
-    webSocket.sendTXT(i, copy);
+  // Только подключённые клиенты: раньше кадр уходил по id 0..100, то есть сто одна
+  // запись в сокеты, из которых подключён хорошо если один.
+  for (uint8_t client = 0; client < WEBSOCKETS_SERVER_CLIENT_MAX; client++) {
+    if (webSocket.clientIsConnected(client)) {
+      webSocket.sendTXT(client, copy);
+    }
   }
 
   tlsBroadcastFrame(frame);
 
 #ifndef DED_CORE_NO_BLE
-  if (bleConnected && bleTelemetry != nullptr) {
+  if (!bleSuspended && bleConnected && bleTelemetry != nullptr) {
     bleTelemetry->setValue((uint8_t*)frame.c_str(), frame.length());
     bleTelemetry->notify();
   }

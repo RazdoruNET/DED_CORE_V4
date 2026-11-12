@@ -78,8 +78,6 @@ extern int type;
 
 extern String APSSID1;
 extern String APPSK1;
-extern String APSSID;
-extern String APPSK;
 
 // Имя или пароль точки доступа изменены и ещё не применены к работающей сети.
 // Признак ставит applyApSettings(), снимает MODULE_PAIRING::tick(): сначала

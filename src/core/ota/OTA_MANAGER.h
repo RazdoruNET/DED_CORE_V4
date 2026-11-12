@@ -1,6 +1,7 @@
 #ifndef OTA_MANAGER_H
 #define OTA_MANAGER_H
 
+#include <atomic>
 #include <HTTPClient.h>
 #include <Update.h>
 #include <ArduinoJson.h>
@@ -39,7 +40,9 @@ private:
     String deviceKey;
     unsigned long lastCheckTime;
     bool initialized;
-    bool updateInProgress = false;
+    // Флаг проверяется и ставится из разных задач (задача сервера и задача OTA):
+    // обычный bool с двумя проверками подряд пропускал двойную запись во флеш.
+    std::atomic<bool> updateInProgress{false};
     FirmwareInfo lastFirmwareInfo;
     bool checkAnswered = false;
     

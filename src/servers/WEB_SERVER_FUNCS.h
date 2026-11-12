@@ -13,10 +13,8 @@ void initServerRoutes() {
     request->send(200, "text/plain", FIRMWARE_VERSION);
   });
 
-  server.on("/reinit", HTTP_GET, [] (AsyncWebServerRequest *request) {
-    INIT_SYSTEM  = true;
-    request->send(200, "text/plain", FIRMWARE_VERSION);
-  });
+  // /reinit убран: он выставлял INIT_SYSTEM, который никто не читает, и не
+  // перезагружал блок. Перезагрузка — GET /core/reboot.
 }
 
 // Материал TLS лежит в том же разделе, что и вшитый фронт, поэтому раздача статики

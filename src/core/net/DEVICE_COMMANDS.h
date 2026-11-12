@@ -14,9 +14,6 @@
 #include <ArduinoJson.h>
 #include "config/PROPS.h"
 #include "core/ota/HYBRID_OTA.h"
-// Определение метки ротора: команда `mark_scan` живёт здесь, а перебор — в ignition/MARK_SCAN.h.
-// Заголовок идемпотентен, поэтому его же подключает core/ignition/MOTO.h.
-#include "core/ignition/MARK_SCAN.h"
 
 extern Preferences preferences;
 extern HybridOTAManager otaManager;
@@ -24,6 +21,32 @@ extern HybridOTAManager otaManager;
 extern int active_cart;
 extern int select_cart;
 extern int Servo_error;
+
+// Экранирование строки для ручной сборки JSON: имена сетей, метод определения метки и
+// пояснения приходят снаружи, и кавычка в них ломала кадр для всех каналов сразу.
+// Определено до MARK_SCAN.h — тот собирает кадр состояния теми же руками.
+String jsonEscape(const String &value) {
+  String out;
+
+  for (unsigned int index = 0; index < value.length(); index++) {
+    char symbol = value[index];
+
+    if (symbol == '"' || symbol == '\\') {
+      out += '\\';
+      out += symbol;
+    } else if (symbol == '\n') {
+      out += "\\n";
+    } else if (symbol >= 0x20) {
+      out += symbol;
+    }
+  }
+
+  return out;
+}
+
+// Определение метки ротора: команда `mark_scan` живёт здесь, а перебор — в ignition/MARK_SCAN.h.
+// Заголовок идемпотентен, поэтому его же подключает core/ignition/MOTO.h.
+#include "core/ignition/MARK_SCAN.h"
 
 // Сколько сетей отдаём и как режем имя: кадр должен уложиться в одну BLE-нотификацию
 // (согласованный MTU 255 → 252 байта полезной нагрузки).
@@ -65,8 +88,8 @@ String wifiStateJson() {
 
   String json = "{";
   json += "\"wifi_auto_update_enabled\":" + String(WIFI_AUTO_UPDATE_ENABLED ? 1 : 0) + ",";
-  json += "\"wifi_update_ssid\":\"" + WIFI_UPDATE_SSID + "\",";
-  json += "\"wifi_update_status\":\"" + WIFI_UPDATE_STATUS + "\",";
+  json += "\"wifi_update_ssid\":\"" + jsonEscape(WIFI_UPDATE_SSID) + "\",";
+  json += "\"wifi_update_status\":\"" + jsonEscape(WIFI_UPDATE_STATUS) + "\",";
   json += "\"wifi_password_set\":" + String(WIFI_UPDATE_PASSWORD.length() > 0 ? 1 : 0) + ",";
   json += "\"wifi_connected\":" + String(connected ? 1 : 0);
   json += "}";
@@ -77,7 +100,7 @@ String wifiStateJson() {
 String deviceInfoJson() {
   String json = "{";
   json += "\"ota_update_available\":" + String(otaManager.getLastFirmwareInfo().updateAvailable ? 1 : 0) + ",";
-  json += "\"ota_last_version\":\"" + otaManager.getLastFirmwareInfo().version + "\",";
+  json += "\"ota_last_version\":\"" + jsonEscape(otaManager.getLastFirmwareInfo().version) + "\",";
   json += "\"firmware_version\":\"" + String(FIRMWARE_VERSION) + "\"";
   json += ",\"diag_wifi_enabled\":" + String(DIAGNOSTICS_WIFI_ENABLED ? 1 : 0);
   json += "}";
@@ -215,6 +238,9 @@ String mapPointJson(int cart, int point) {
 // Значение вне диапазона исказило бы зажигание, поэтому его молча подрезаем.
 #define SETTINGS_MAX_RPM_MIN 1000
 #define SETTINGS_MAX_RPM_MAX 20000
+// Точка карты может стоять на нуле оборотов (первая точка карт на 12 и 22 точки,
+// см. ignition/carts/RPMs.h), поэтому нижняя граница у точки другая.
+#define SETTINGS_MAP_RPM_MIN 0
 #define SETTINGS_ANGLE_MIN 0
 #define SETTINGS_ANGLE_MAX 60
 // Продолжительность сигнала прошивка сравнивает с micros(), то есть это микросекунды.
@@ -222,6 +248,10 @@ String mapPointJson(int cart, int point) {
 #define SETTINGS_FLASH_TIME_MAX 20000
 #define SETTINGS_FILTER_MIN 0
 #define SETTINGS_FILTER_MAX 100
+// qa — не угол, а время удержания искры квикшифтером в миллисекундах (QS_time):
+// у него своя шкала, иначе значение по умолчанию 135 мс задать нельзя.
+#define SETTINGS_QUICK_SHIFT_MIN 0
+#define SETTINGS_QUICK_SHIFT_MAX 1000
 #define SETTINGS_SERVO_RPM_MIN 0
 #define SETTINGS_SERVO_RPM_MAX 20000
 #define SETTINGS_SERVO_PERCENT_MIN 0
@@ -251,11 +281,11 @@ bool applyMapPoint(int cart, int point, float rpm, float angle, float angleAdjus
   // зажиганием работающего двигателя. Диапазоны — те же, что у полей страницы:
   // угол за их пределами означает детонацию и разрушение поршневой, а не «неверную
   // настройку», поэтому подрезаем молча, ровно как в applySettingsPatch.
-  rpm = constrain(rpm, (float) SETTINGS_MAX_RPM_MIN, (float) SETTINGS_MAX_RPM_MAX);
+  rpm = constrain(rpm, (float) SETTINGS_MAP_RPM_MIN, (float) SETTINGS_MAX_RPM_MAX);
   angle = constrain(angle, (float) SETTINGS_ANGLE_MIN, (float) SETTINGS_ANGLE_MAX);
 
   int adjustedAngle = clampSetting((int) angleAdjust, SETTINGS_ANGLE_MIN, SETTINGS_ANGLE_MAX);
-  int adjustedQuick = clampSetting(quickAdjust, SETTINGS_ANGLE_MIN, SETTINGS_ANGLE_MAX);
+  int adjustedQuick = clampSetting(quickAdjust, SETTINGS_QUICK_SHIFT_MIN, SETTINGS_QUICK_SHIFT_MAX);
   int adjustedServo = clampSetting((int) servo, SETTINGS_SERVO_PERCENT_MIN, SETTINGS_SERVO_PERCENT_MAX);
 
   rpmsArr[index][point] = rpm;
@@ -411,7 +441,7 @@ void applyApSettings(const String &ssid, const String &pass) {
 // Пароль точки доступа в кадр не кладём: приложение показывает только то, что он задан.
 String apStateJson() {
   String json = "{\"event\":\"ap\",\"data\":{";
-  json += "\"wsid\":\"" + APSSID1 + "\",";
+  json += "\"wsid\":\"" + jsonEscape(APSSID1) + "\",";
   json += "\"password_set\":" + String(APPSK1.length() > 0 ? 1 : 0);
   json += "}}";
 
@@ -497,9 +527,15 @@ bool handleDeviceCommand(const String &dataStr, String &out) {
     out = "{\"event\":\"diag\",\"data\":{\"enabled\":" + String(DIAGNOSTICS_WIFI_ENABLED ? 1 : 0) +
           ",\"reboot\":1}}";
 
+    // Подтверждение уходит всем каналам до перезагрузки: обработчик не вернётся,
+    // и ответ «через канал запроса» приложение уже не получит.
+    sendDeviceFrame(out);
+
     // Режим меняет состав задач и стек: применяем его перезагрузкой в любом случае —
     // и при включении, и при выключении (иначе Bluetooth не вернётся к приложению).
-    delay(1500);
+    // Выход на коммутатор гасим: перезагрузка не должна оставить искру включённой.
+    digitalWrite(out_pin, HIGH_OUTPUT ? LOW : HIGH);
+    delay(400);
     ESP.restart();
 
     return true;
@@ -593,6 +629,9 @@ bool handleDeviceCommand(const String &dataStr, String &out) {
     sendDeviceFrame("{\"event\":\"reboot\",\"data\":{\"reboot\":1}}");
 
     Serial.println("reboot by app");
+    // Выход на коммутатор гасим: иначе катушка остаётся под током на всё время
+    // перезагрузки, а команда может прийти на работающем двигателе.
+    digitalWrite(out_pin, HIGH_OUTPUT ? LOW : HIGH);
     delay(400);
     ESP.restart();
 

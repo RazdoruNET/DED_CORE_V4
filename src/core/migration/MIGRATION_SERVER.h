@@ -282,6 +282,10 @@ void sendMigrationStatus(AsyncWebServerRequest *request) {
 // Права как у обновления по воздуху: ключ устройства обязателен, если он выдан;
 // из сети точки доступа — только пока блока ещё не привязали (иначе переход на новую
 // разметку мог бы запустить любой, кто узнал пароль точки доступа).
+// Определение — core/net/MODULE_PAIRING.h: модуль сопряжения подключается позже,
+// поэтому объявляем проверку здесь.
+bool devicePairingWindowOpen();
+
 bool migrationRequestAllowed(AsyncWebServerRequest *request) {
   String deviceKey = otaManager.getDeviceKey();
 
@@ -306,6 +310,10 @@ bool migrationRequestAllowed(AsyncWebServerRequest *request) {
     return diff == 0;
   }
 
+  if (devicePairingWindowOpen()) {
+    return false;
+  }
+
   IPAddress client = request->client()->remoteIP();
   return client[0] == 192 && client[1] == 168 && client[2] == 4;
 }
@@ -321,17 +329,24 @@ void registerMigrationRoutes(AsyncWebServer *server) {
 
       if (index == 0) {
         body = "";
+
+        // Лимит и права проверяем до reserve: иначе объявленный в запросе размер
+        // тела заставлял устройство выделять под него произвольный объём памяти.
+        if (total > 1024 || !migrationRequestAllowed(request)) {
+          request->send(403, "text/plain", "Нужен доступ из сети блока или ключ устройства");
+          return;
+        }
+
         body.reserve(total + 1);
+      }
+
+      if (!migrationRequestAllowed(request)) {
+        return;
       }
 
       body.concat((const char *)data, len);
 
       if (index + len < total) {
-        return;
-      }
-
-      if (!migrationRequestAllowed(request)) {
-        request->send(403, "text/plain", "Нужен доступ из сети блока или ключ устройства");
         return;
       }
 

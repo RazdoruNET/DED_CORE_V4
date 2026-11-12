@@ -54,7 +54,9 @@ DED_CORE_V4 - это система управления зажиганием д
 - **ServerTask.h** - Задача веб-сервера (WiFi, HTTP, WebSocket, TLS, OTA, миграция)
 - **ControlTask.h** - Задача управления пинами
 - **OtaTask.h** - Задача сетевого обновления (16 КБ стека под TLS)
-- **AlarmTask.h** - Задача аварийной системы (создаётся при включённом `SOUND`)
+- **AlarmTask.h** - Задача аварийной системы: пищалка и шифт-лайт на GPIO32
+  (создаётся, только если сборка с `-DDED_CORE_SOUND=true`: тогда GPIO32 — выход,
+  а не кнопка «карта вверх»)
 
 #### 9. Сетевые серверы (`servers/`)
 - **WIFI_SERVER.h** - Точка доступа, AP-DNS, режим восстановления, автообновление по WiFi
@@ -103,7 +105,7 @@ DED_CORE_V4 - это система управления зажиганием д
    - printPairCodeToSerial() — код сопряжения в Serial
    - handleMigrationBootStep() — завершение перехода на новую разметку (перезагрузка)
    - setupConfiguration() — чтение настроек из NVS
-   - initSystemTasks() — задачи сервера, управления, OTA (и аларма при SOUND)
+   - initSystemTasks() — задачи сервера, управления, OTA (и аларма при `DED_CORE_SOUND`)
    - otaManager.begin() и initBleServer() (если BLE собран)
 
 4. Основной цикл (loop())

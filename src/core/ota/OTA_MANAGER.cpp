@@ -283,6 +283,7 @@ bool OTAManager::downloadAndInstall(const String& url, const String& md5, const 
     
     if (!Update.begin(contentLength)) {
         Serial.println("Not enough space for update");
+        http.end();
         return false;
     }
     
@@ -301,6 +302,9 @@ bool OTAManager::downloadAndInstall(const String& url, const String& md5, const 
         Serial.print(written);
         Serial.print(" Expected: ");
         Serial.println(contentLength);
+        // Без abort() раздел остаётся в состоянии «идёт запись», а соединение — открытым.
+        Update.abort();
+        http.end();
         return false;
     }
 
@@ -319,6 +323,7 @@ bool OTAManager::downloadAndInstall(const String& url, const String& md5, const 
     if (!Update.end()) {
         Serial.println("Update end failed");
         Serial.println(Update.errorString());
+        http.end();
         return false;
     }
     
@@ -345,12 +350,15 @@ bool OTAManager::performUpdate() {
         return false;
     }
 
-    if (updateInProgress) {
+    // Атомарная проверка-и-захват: две задачи (сервер и автообновление) не должны
+    // одновременно писать во флеш.
+    bool expected = false;
+
+    if (!updateInProgress.compare_exchange_strong(expected, true)) {
         Serial.println("Another flash operation is running");
         return false;
     }
 
-    updateInProgress = true;
     bool result = performUpdateInternal();
     updateInProgress = false;
 
