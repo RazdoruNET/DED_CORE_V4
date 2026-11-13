@@ -20,6 +20,7 @@ extern int userIndex;
 extern int modul;
 extern Preferences preferences;
 extern HybridOTAManager otaManager;
+extern bool wsAuthorized[];
 
 // Forward declaration
 void onEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
@@ -30,22 +31,40 @@ void initWebSocket() {
 }
 
 // Обработка команды клиента (WS на 81 и HTTPS/WSS используют её совместно).
+// authorized — клиент подтвердил ключ устройства; иначе меняющие состояние
+// команды отклоняются внутри handleDeviceCommand.
 // Возвращает true, если нужен ответ (например, pong) — он кладётся в out.
 // Команды разбирает общий обработчик: тот же JSON приходит по Bluetooth и по wss на 443.
-bool handleClientCommand(const String &dataStr, String &out) {
-  return handleDeviceCommand(dataStr, out);
+bool handleClientCommand(const String &dataStr, String &out, bool authorized) {
+  return handleDeviceCommand(dataStr, out, authorized);
+}
+
+// Простой ws:// на порту 81 не шифрует трафик: ключ устройства можно отправлять
+// только из сети самой точки доступа блока, где канал закрыт WPA2. Из домашней
+// сети команды идут через wss:// (TLS), там проверка не нужна.
+bool wsClientOnAccessPoint(uint8_t num) {
+  const IPAddress ap = WiFi.softAPIP();
+  const IPAddress client = webSocket.remoteIP(num);
+
+  return client[0] == ap[0] && client[1] == ap[1] && client[2] == ap[2];
 }
 
 void onEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   switch (type) {
     case WStype_DISCONNECTED:
       module_pairing::clearClient(num);
+      if (num < WEBSOCKETS_SERVER_CLIENT_MAX) {
+        wsAuthorized[num] = false;
+      }
       Serial.println("WebSocket disconnected");
       break;
     case WStype_CONNECTED:
       // Доверие проверяется кадром module_hello, а не фактом подключения:
       // к точке доступа может подключиться кто угодно, кто знает её пароль.
       module_pairing::clearClient(num);
+      if (num < WEBSOCKETS_SERVER_CLIENT_MAX) {
+        wsAuthorized[num] = false;
+      }
       Serial.println("WebSocket connected");
       break;
     case WStype_BIN:
@@ -66,8 +85,32 @@ void onEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
       dataStr.replace("}\"", "}");
       dataStr.replace("\"{", "{");
 
+      // Рукопожатие владельца: ключ устройства приходит один раз на соединение.
+      StaticJsonBuffer<256> authBuffer;
+      JsonObject &auth = authBuffer.parseObject(dataStr);
+
+      if (auth.success() && auth["event"] == "auth") {
+        const char *key = auth["data"]["key"];
+        const String deviceKey = otaManager.getDeviceKey();
+        const bool ok = wsClientOnAccessPoint(num) &&
+                        key != nullptr &&
+                        deviceKey.length() > 0 &&
+                        module_pairing::keyEquals(String(key), deviceKey);
+
+        if (num < WEBSOCKETS_SERVER_CLIENT_MAX) {
+          wsAuthorized[num] = ok;
+        }
+
+        webSocket.sendTXT(num, ok
+                                  ? "{\"event\":\"auth\",\"data\":{\"ok\":1}}"
+                                  : "{\"event\":\"auth\",\"data\":{\"error\":\"unauthorized\"}}");
+
+        Serial.printf("WebSocket auth: client %u %s\n", static_cast<unsigned>(num), ok ? "ok" : "denied");
+        break;
+      }
+
       String response;
-      if (handleClientCommand(dataStr, response)) {
+      if (handleClientCommand(dataStr, response, num < WEBSOCKETS_SERVER_CLIENT_MAX && wsAuthorized[num])) {
         webSocket.sendTXT(num, response);
       }
 

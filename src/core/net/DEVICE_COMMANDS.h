@@ -483,13 +483,34 @@ String settingsFlagsJson() {
 
 // Разбор команды. true — есть ответ: WebSocket отправляет строку запросившему клиенту,
 // Bluetooth — уведомлением.
-bool handleDeviceCommand(const String &dataStr, String &out) {
+// authorized — клиент доказал право менять состояние (ключ устройства по WS/TLS или
+// физическое нажатие кнопки по Bluetooth). Чтение телеметрии и карты доступно всем.
+bool handleDeviceCommand(const String &dataStr, String &out, bool authorized) {
   StaticJsonBuffer<512> jsonBuffer;
   JsonObject &json = jsonBuffer.parseObject(dataStr);
 
   if (!json.success()) {
     Serial.println(dataStr);
     return false;
+  }
+
+  const char *event = json["event"];
+  const bool mutating = event != nullptr &&
+                        (strcmp(event, "cart") == 0 ||
+                         strcmp(event, "servo_error") == 0 ||
+                         strcmp(event, "diag") == 0 ||
+                         strcmp(event, "map_set") == 0 ||
+                         strcmp(event, "wifi") == 0 ||
+                         strcmp(event, "mark_scan") == 0 ||
+                         strcmp(event, "ap") == 0 ||
+                         strcmp(event, "reboot") == 0 ||
+                         strcmp(event, "settings") == 0 ||
+                         strcmp(event, "wifi_scan") == 0);
+
+  if (mutating && !authorized) {
+    out = "{\"event\":\"error\",\"data\":{\"error\":\"unauthorized\"}}";
+    Serial.println("Command denied: no device key / button press");
+    return true;
   }
 
   if (json["event"] == "cart") {

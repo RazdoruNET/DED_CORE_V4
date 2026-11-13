@@ -221,8 +221,10 @@ export class SettingsComponent {
       const result = await this.device.startModulePairing();
       const seconds = Math.round(result.windowMs / 1000);
 
-      this.pairNote.set(`Сеть ${result.ssid} открыта на ${seconds} с.`);
-      this.device.toast('Окно сопряжения открыто, включите модуль', 'ok');
+      this.pairNote.set(
+        `Сеть ${result.ssid} закрыта кодом ${result.code}. Введите код в портале модуля; окно закроется через ${seconds} с.`,
+      );
+      this.device.toast('Окно сопряжения открыто, код показан на экране', 'ok');
     } catch (error) {
       this.pairNote.set(errorMessage(error));
       this.device.toast(errorMessage(error), 'error');
@@ -243,6 +245,25 @@ export class SettingsComponent {
       this.pairNote.set('Окно сопряжения закрыто');
     } catch (error) {
       this.pairNote.set(errorMessage(error));
+    } finally {
+      this.pairing.set(false);
+    }
+  }
+
+  async forgetModules(): Promise<void> {
+    if (this.pairing()) {
+      return;
+    }
+
+    this.pairing.set(true);
+
+    try {
+      await this.device.forgetModules();
+      this.pairNote.set('Все сопряжённые модули забыты');
+      this.device.toast('Модули забыты', 'ok');
+    } catch (error) {
+      this.pairNote.set(errorMessage(error));
+      this.device.toast(errorMessage(error), 'error');
     } finally {
       this.pairing.set(false);
     }

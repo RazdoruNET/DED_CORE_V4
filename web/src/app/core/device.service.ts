@@ -73,6 +73,9 @@ export class DeviceService {
   private pending = new Map<string, Pending>();
   private toastId = 0;
   private closedByUser = false;
+  // Команды, меняющие состояние, ждут подтверждения ключа устройства.
+  private authorized = false;
+  private pendingCommands: Command[] = [];
 
   connect(): void {
     this.closedByUser = false;
@@ -97,7 +100,10 @@ export class DeviceService {
     socket.onopen = () => {
       this.reconnectDelay = 1000;
       this.connection.set('online');
+      this.authorized = false;
+      this.pendingCommands = [];
       this.startPing();
+      this.sendAuth();
       this.send({ event: 'settings', data: {} });
       void this.refreshStatus();
     };
@@ -113,6 +119,8 @@ export class DeviceService {
       this.rejectAll('Связь с блоком прервана');
       this.connection.set('offline');
       this.socket = null;
+      this.authorized = false;
+      this.pendingCommands = [];
 
       if (!this.closedByUser) {
         this.scheduleReconnect();
@@ -180,8 +188,38 @@ export class DeviceService {
       return false;
     }
 
+    // Чтение и ping доступны без ключа; команды, меняющие состояние, ждут
+    // подтверждения auth, иначе блок их отклонит.
+    const mutating = command.event !== 'ping' && command.event !== 'map_point';
+    if (mutating && !this.authorized) {
+      if (this.pendingCommands.length < 20) {
+        this.pendingCommands.push(command);
+      }
+      return true;
+    }
+
     socket.send(JSON.stringify(command));
     return true;
+  }
+
+  private sendAuth(): void {
+    const key = this.deviceKey().trim();
+
+    if (!key) {
+      this.toast('Блок не привязан: команды недоступны', 'error');
+      return;
+    }
+
+    this.socket?.send(JSON.stringify({ event: 'auth', data: { key } }));
+  }
+
+  private flushCommands(): void {
+    const queued = this.pendingCommands;
+    this.pendingCommands = [];
+
+    for (const command of queued) {
+      this.socket?.send(JSON.stringify(command));
+    }
   }
 
   private request<T>(command: Command, key: string, timeoutMs = 4000): Promise<T> {
@@ -260,6 +298,19 @@ export class DeviceService {
     const data = frame.data;
 
     switch (frame.event) {
+      case 'auth': {
+        const payload = data as { ok?: number; error?: string } | undefined;
+
+        if (payload?.ok === 1) {
+          this.authorized = true;
+          this.flushCommands();
+        } else {
+          this.pendingCommands = [];
+          this.toast('Блок не принял ключ устройства', 'error');
+        }
+        break;
+      }
+
       case 'message': {
         const telemetry = data as Telemetry;
         if (!telemetry || typeof telemetry.rpm !== 'number') {
@@ -646,17 +697,21 @@ export class DeviceService {
 
   // Сопряжение внешнего модуля. Блок на 90 секунд подменяет точку доступа
   // сетью DED_PAIR_*, поэтому телефон отключится от блока до конца окна.
-  async startModulePairing(): Promise<{ ssid: string; windowMs: number }> {
-    const result = await this.httpJson<{ data: { ssid: string; window_ms: number } }>(
+  async startModulePairing(): Promise<{ ssid: string; code: string; windowMs: number }> {
+    const result = await this.httpJson<{ data: { ssid: string; code: string; window_ms: number } }>(
       '/module/pair/start',
       { method: 'POST' },
     );
 
-    return { ssid: result.data.ssid, windowMs: result.data.window_ms };
+    return { ssid: result.data.ssid, code: result.data.code, windowMs: result.data.window_ms };
   }
 
   async stopModulePairing(): Promise<void> {
     await this.httpText('/module/pair/stop', { method: 'POST' });
+  }
+
+  async forgetModules(): Promise<void> {
+    await this.httpText('/module/forget', { method: 'POST' });
   }
 
   async setDiagnostics(enabled: boolean): Promise<void> {

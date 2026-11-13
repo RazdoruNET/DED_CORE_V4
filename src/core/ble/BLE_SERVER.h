@@ -191,7 +191,18 @@ void handleBleCommands() {
     }
 
     String reply = "";
-    if (handleDeviceCommand(payload, reply)) {
+
+    // Остальные кадры меняют зажигание, сеть или перезагружают блок. BLE-линк
+    // не аутентифицирован, поэтому требуем физическое подтверждение — нажатие
+    // кнопки на блоке в последнюю минуту. Одного факта «клиент рядом» мало:
+    // радиус Bluetooth — десятки метров.
+    if (!blePresenceRecent()) {
+      bleNotify("{\"event\":\"error\",\"data\":{\"error\":\"presence\"}}");
+      Serial.println("BLE command denied: no recent button press");
+      continue;
+    }
+
+    if (handleDeviceCommand(payload, reply, true)) {
       bleNotify(reply);
     }
   }

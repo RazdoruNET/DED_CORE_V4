@@ -41,8 +41,9 @@ extern Preferences preferences;
 // Префикс сети сопряжения. По нему модуль ищет блок сканированием.
 #define MODULE_PAIR_PREFIX "DED_PAIR_"
 
-// Сколько живёт окно сопряжения, если никто не пришёл.
-#define MODULE_PAIR_WINDOW_MS 90000UL
+// Сколько живёт окно сопряжения, если никто не пришёл. Три минуты: владельцу
+// нужно открыть окно в приложении блока, записать код и ввести его в портале модуля.
+#define MODULE_PAIR_WINDOW_MS 180000UL
 
 // Задержка перед подменой точки доступа: ответ на POST /module/pair/start
 // должен уйти в сеть раньше, чем сеть исчезнет.
@@ -50,6 +51,12 @@ extern Preferences preferences;
 
 // Сколько ждём после ответа модулю: он должен успеть дочитать ответ.
 #define MODULE_PAIR_RESTORE_DELAY_MS 3000UL
+
+// Код сопряжения. Сеть DED_PAIR_* поднимается не открытой, а с WPA2-паролем,
+// выведенным из этого кода: иначе любой в радиусе мог бы прочитать ответ
+// /module/pair с паролем основной точки доступа. Код показывает приложение
+// блока, владелец вводит его в портале модуля.
+#define MODULE_PAIR_CODE_LENGTH 12
 
 // Токен доверенного модуля. Выдаётся при сопряжении и приходит в каждом
 // подтверждении связи (module_hello); по нему блок отличает сопряжённый модуль
@@ -75,6 +82,11 @@ unsigned long g_switchAt = 0;
 unsigned long g_windowEndAt = 0;
 unsigned long g_restoreAt = 0;
 
+// Код текущего окна и признак «модуль уже забрал параметры». Один код — один
+// модуль: иначе один и тот же код выпускал бы сколько угодно токенов.
+String g_pairCode;
+bool g_pairServed = false;
+
 // Какие WS-клиенты подтвердили токен модуля.
 bool g_trusted[MODULE_TRUSTED_CLIENTS] = {false};
 
@@ -90,6 +102,25 @@ inline String pairApSsid() {
   return String(MODULE_PAIR_PREFIX) + mac.substring(mac.length() - 4);
 }
 
+// WPA2-пароль сети сопряжения — сам код: 12 знаков без похожих друг на друга,
+// минимальная длина WPA2 (8) соблюдена.
+inline String pairApPassword() {
+  return g_pairCode;
+}
+
+inline String randomPairCode() {
+  static const char alphabet[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+  String code;
+  code.reserve(MODULE_PAIR_CODE_LENGTH);
+
+  for (int i = 0; i < MODULE_PAIR_CODE_LENGTH; i++) {
+    code += alphabet[esp_random() % (sizeof(alphabet) - 1)];
+  }
+
+  return code;
+}
+
 inline bool active() {
   return g_active || g_openPending;
 }
@@ -103,6 +134,8 @@ inline void restore() {
   g_active = false;
   g_windowEndAt = 0;
   g_restoreAt = 0;
+  g_pairCode = "";
+  g_pairServed = false;
 
   if (APPSK1.length() < 8) {
     Serial.println("Module pairing: closed, AP password is not set");
@@ -121,17 +154,22 @@ inline void open() {
     return;
   }
 
+  if (g_pairCode.length() != MODULE_PAIR_CODE_LENGTH) {
+    g_pairCode = randomPairCode();
+  }
+
   // Одна точка доступа на ESP32: основную на время окна заменяет сеть
-  // сопряжения, иначе модуль не смог бы к ней подключиться.
-  WiFi.softAP(pairApSsid().c_str());
+  // сопряжения, иначе модуль не смог бы к ней подключиться. Сеть закрыта
+  // WPA2-паролем из кода: без кода к ней не подключиться и не перехватить ответ.
+  WiFi.softAP(pairApSsid().c_str(), pairApPassword().c_str());
 
   g_active = true;
   g_windowEndAt = millis() + MODULE_PAIR_WINDOW_MS;
   g_restoreAt = 0;
 
-  Serial.print("Module pairing: open AP ");
+  Serial.print("Module pairing: open WPA2 AP ");
   Serial.print(pairApSsid());
-  Serial.println(" (no password)");
+  Serial.println(" (code shown in the app)");
 }
 
 inline void scheduleSwitch() {
@@ -144,9 +182,17 @@ inline void requestOpen() {
   g_closePending = false;
 
   if (g_active) {
-    g_windowEndAt = millis() + MODULE_PAIR_WINDOW_MS;
+    // Один код — один модуль: если параметры уже забрали, новое окно откроется
+    // только после закрытия текущего.
+    if (!g_pairServed) {
+      g_windowEndAt = millis() + MODULE_PAIR_WINDOW_MS;
+    }
     return;
   }
+
+  // Каждое окно — новый код. Старый не даёт подключиться к следующему окну.
+  g_pairCode = randomPairCode();
+  g_pairServed = false;
 
   g_openPending = true;
   scheduleSwitch();
@@ -246,6 +292,8 @@ inline String stateJson() {
   json += windowOpen ? "1" : "0";
   json += ",\"ssid\":\"";
   json += windowOpen ? pairApSsid() : String("");
+  json += "\",\"code\":\"";
+  json += windowOpen ? g_pairCode : String("");
   json += "\",\"window_ms\":";
   json += String(MODULE_PAIR_WINDOW_MS);
   json += "}}";
@@ -254,9 +302,10 @@ inline String stateJson() {
 }
 
 inline bool fromAccessPoint(AsyncWebServerRequest *request) {
-  const IPAddress client = request->client()->remoteIP();
-
-  return client[0] == 192 && client[1] == 168 && client[2] == 4;
+  // Точный признак «запрос пришёл через точку доступа»: локальный адрес соединения
+  // совпадает с адресом softAP. Подсеть клиента ничего не доказывает — домашняя
+  // сеть тоже может быть 192.168.4.0/24.
+  return request->client()->localIP() == WiFi.softAPIP();
 }
 
 // --- Доверенные модули --------------------------------------------------------
@@ -268,6 +317,27 @@ inline bool fromAccessPoint(AsyncWebServerRequest *request) {
 
 inline String tokenSlotKey(uint8_t slot) {
   return String("mtok") + String(slot);
+}
+
+// MAC модуля храним рядом с токеном: украденный в окне сопряжения токен не
+// должен работать с другого устройства.
+inline String tokenMacSlotKey(uint8_t slot) {
+  return String("mmac") + String(slot);
+}
+
+inline String normalizeMac(const String &value) {
+  String out;
+  out.reserve(12);
+
+  for (unsigned int i = 0; i < value.length(); i++) {
+    const char symbol = value[i];
+
+    if (isxdigit(static_cast<unsigned char>(symbol))) {
+      out += static_cast<char>(toupper(static_cast<unsigned char>(symbol)));
+    }
+  }
+
+  return out;
 }
 
 // Сравнение без раннего выхода: посимвольный возврат на первом несовпадении
@@ -302,7 +372,14 @@ inline String randomToken() {
 // Выдать токен при сопряжении. Свободный слот — под новый модуль; когда слоты
 // кончились, заменяем самый старый. Старые токены остаются действительными,
 // пока их не вытеснили: пересопряжение одного модуля не рвёт связку с другим.
-inline String issueToken() {
+inline String issueToken(const String &mac) {
+  const String normalizedMac = normalizeMac(mac);
+
+  if (normalizedMac.length() == 0) {
+    Serial.println("Module pairing: module MAC is missing, token not issued");
+    return String("");
+  }
+
   for (uint8_t slot = 0; slot < MODULE_TOKEN_SLOTS; slot++) {
     const String key = tokenSlotKey(slot);
     const String stored = preferences.getString(key.c_str(), "");
@@ -313,6 +390,7 @@ inline String issueToken() {
 
     const String token = randomToken();
     preferences.putString(key.c_str(), token);
+    preferences.putString(tokenMacSlotKey(slot).c_str(), normalizedMac);
 
     Serial.printf("Module pairing: token issued in slot %u\n", static_cast<unsigned>(slot));
 
@@ -321,26 +399,45 @@ inline String issueToken() {
 
   const String token = randomToken();
   preferences.putString(tokenSlotKey(0).c_str(), token);
+  preferences.putString(tokenMacSlotKey(0).c_str(), normalizedMac);
 
   Serial.println("Module pairing: token slots are full, oldest replaced");
 
   return token;
 }
 
-inline bool verifyToken(const String &token) {
-  if (token.length() != MODULE_TOKEN_LENGTH) {
+inline bool verifyToken(const String &token, const String &mac) {
+  const String normalizedMac = normalizeMac(mac);
+
+  if (token.length() != MODULE_TOKEN_LENGTH || normalizedMac.length() == 0) {
     return false;
   }
 
   for (uint8_t slot = 0; slot < MODULE_TOKEN_SLOTS; slot++) {
     const String stored = preferences.getString(tokenSlotKey(slot).c_str(), "");
+    const String storedMac = preferences.getString(tokenMacSlotKey(slot).c_str(), "");
 
-    if (tokenEquals(stored, token)) {
+    if (tokenEquals(stored, token) && storedMac.length() > 0 && storedMac.equalsIgnoreCase(normalizedMac)) {
       return true;
     }
   }
 
   return false;
+}
+
+// Забыть все сопряжённые модули: токены и привязанные MAC. Следующее
+// сопряжение выдаст новые пропуска, старые перестанут работать сразу.
+inline void forgetModules() {
+  for (uint8_t slot = 0; slot < MODULE_TOKEN_SLOTS; slot++) {
+    preferences.remove(tokenSlotKey(slot).c_str());
+    preferences.remove(tokenMacSlotKey(slot).c_str());
+  }
+
+  for (uint8_t client = 0; client < MODULE_TRUSTED_CLIENTS; client++) {
+    g_trusted[client] = false;
+  }
+
+  Serial.println("Module pairing: all module tokens forgotten");
 }
 
 inline void clearClient(uint8_t client) {
@@ -387,7 +484,8 @@ inline bool handleHello(uint8_t client, const char *payload, size_t length) {
   const char *mac = root["data"]["mac"];
   const char *fw = root["data"]["fw"];
 
-  const bool trusted = token != nullptr && verifyToken(String(token));
+  const bool trusted = token != nullptr &&
+                       verifyToken(String(token), mac != nullptr ? String(mac) : String(""));
 
   if (client < MODULE_TRUSTED_CLIENTS) {
     g_trusted[client] = trusted;
@@ -480,21 +578,45 @@ inline bool devicePairingWindowOpen() {
 
 inline void registerModulePairingRoutes(AsyncWebServer *server) {
   // Модуль забирает параметры основной точки доступа. Маршрут живёт только
-  // в сети сопряжения и только при открытом окне.
+  // в сети сопряжения и только при открытом окне; после первого ответа окно
+  // считается использованным.
   server->on("/module/pair", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (!module_pairing::active() || !module_pairing::fromAccessPoint(request)) {
+    if (!module_pairing::active() || !module_pairing::fromAccessPoint(request) ||
+        module_pairing::g_pairServed) {
       request->send(403, "text/plain", "Pairing window is closed");
       return;
     }
+
+    const AsyncWebHeader *macHeader = request->getHeader("X-Module-Mac");
+    const String mac = macHeader != nullptr ? macHeader->value() : String("");
+    const String token = module_pairing::issueToken(mac);
+
+    if (token.length() != MODULE_TOKEN_LENGTH) {
+      request->send(400, "text/plain", "Module MAC is required");
+      return;
+    }
+
+    module_pairing::g_pairServed = true;
 
     Serial.print("Module pairing: module ");
     Serial.print(request->client()->remoteIP());
     Serial.println(" received the AP credentials");
 
-    request->send(200, "application/json", module_pairing::payloadJson(module_pairing::issueToken()));
+    request->send(200, "application/json", module_pairing::payloadJson(token));
 
     // Основную точку доступа возвращаем с задержкой: ответ ещё должен уйти.
     module_pairing::scheduleRestore();
+  });
+
+  // Забыть сопряжённые модули: старые токены перестают работать сразу.
+  server->on("/module/forget", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (!module_pairing::changeAllowed(request)) {
+      module_pairing::denyKey(request);
+      return;
+    }
+
+    module_pairing::forgetModules();
+    request->send(200, "application/json", "{\"event\":\"module_forget\",\"data\":{\"ok\":1}}");
   });
 
   // Владелец открывает окно из приложения. Пока блок привязан, нужен ключ

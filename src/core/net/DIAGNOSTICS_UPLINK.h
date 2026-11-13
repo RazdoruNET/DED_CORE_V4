@@ -146,7 +146,9 @@ String diagnosticsRunCommand(const String &kind, JsonObject &payload, bool &fail
 
   String out;
 
-  handleDeviceCommand(frame, out);
+  // Канал диагностики уже аутентифицирован сессией оператора: команда пришла
+  // из сервиса по TLS, а не от случайного клиента в сети.
+  handleDeviceCommand(frame, out, true);
 
   return out.length() == 0 ? "{\"applied\":true}" : out;
 }

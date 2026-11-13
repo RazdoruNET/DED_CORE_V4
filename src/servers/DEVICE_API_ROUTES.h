@@ -78,8 +78,10 @@ bool dedCoreFromAccessPoint(AsyncWebServerRequest *request) {
     return false;
   }
 
-  IPAddress client = request->client()->remoteIP();
-  return client[0] == 192 && client[1] == 168 && client[2] == 4;
+  // Точный признак «запрос пришёл через точку доступа»: локальный адрес соединения
+  // совпадает с адресом softAP. Проверка по подсети клиента ошибалась, если домашняя
+  // сеть тоже использует 192.168.4.0/24.
+  return request->client()->localIP() == WiFi.softAPIP();
 }
 
 /// Действие меняет состояние: нужен ключ, если он уже выдан.

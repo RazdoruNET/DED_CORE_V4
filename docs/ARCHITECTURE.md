@@ -71,7 +71,7 @@ DED_CORE_V4 - это система управления зажиганием д
 - **core/net/UPDATE_SERVER.h** - страница `/update` и приём образа: `POST /api/update`
   (доступ из сети блока или по `X-Device-Key`)
 - **core/net/TLS_HTTP_ROUTES.h** - общие маршруты для HTTP и HTTPS
-- **core/net/MODULE_PAIRING.h** - сопряжение внешних модулей: окно `DED_PAIR_*`, `GET /module/pair`, токены и рассылка новых параметров сети модулям
+- **core/net/MODULE_PAIRING.h** - сопряжение внешних модулей: окно `DED_PAIR_*` с WPA2-кодом, `GET /module/pair`, токены, привязанные к MAC, и рассылка новых параметров сети модулям
 - **core/net/SERVICE_CLIENT.h**, **TRUSTED_CA.h** - HTTPS-клиент к сервису с проверкой
   сертификата (корни ISRG), часы по NTP
 - **core/ota/OTA_MANAGER.{h,cpp}**, **HYBRID_OTA.***, **ARDUINO_OTA.*** - проверка релиза,

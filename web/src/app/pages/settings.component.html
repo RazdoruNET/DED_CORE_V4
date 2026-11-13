@@ -139,13 +139,15 @@
             <span>Сопряжение модуля</span>
             <strong class="status-line">{{ pairNote() || 'окно не открывалось' }}</strong>
             <small>
-              Блок на 90 секунд поднимет сеть DED_PAIR_*, к ней подключится модуль (сервопривод).
-              На это время точка доступа блока исчезнет, и телефон отключится от него.
+              Блок на 3 минуты поднимет сеть DED_PAIR_*, закрытую кодом. Код появится здесь —
+              введите его в портале модуля. На это время точка доступа блока исчезнет,
+              и телефон отключится от него.
             </small>
           </div>
           <div class="mark-actions">
             <button type="button" class="btn is-primary" [disabled]="pairing()" (click)="startModulePairing()">Найти модуль</button>
             <button type="button" class="btn is-ghost" [disabled]="pairing()" (click)="stopModulePairing()">Закрыть окно</button>
+            <button type="button" class="btn is-ghost" [disabled]="pairing()" (click)="forgetModules()">Забыть модули</button>
           </div>
         </div>
       </div>

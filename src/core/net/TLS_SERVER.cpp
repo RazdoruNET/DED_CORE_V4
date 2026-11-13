@@ -28,14 +28,10 @@
 
 // Общий протокол с WS на 81 — определения в WEB_SOCKET_FUNCS.h (в этой единице трансляции их нет).
 String getDataJson();
-bool handleClientCommand(const String &dataStr, String &out);
+bool handleClientCommand(const String &dataStr, String &out, bool authorized);
 
 extern Preferences preferences;
 extern HybridOTAManager otaManager;
-
-// Определения в servers/WEB_SOCKET_FUNCS.h — протокол общий с WS на 81.
-String getDataJson();
-bool handleClientCommand(const String &dataStr, String &out);
 
 // Домен сертификата; AP-DNS резолвит его на адрес устройства.
 #define DED_CORE_TLS_CERT_FILE    "/cert.pem"
@@ -49,6 +45,9 @@ bool handleClientCommand(const String &dataStr, String &out);
 
 static httpd_handle_t tlsServer = nullptr;
 static int tlsClients[DED_CORE_TLS_MAX_CLIENTS] = { -1, -1, -1, -1 };
+// Клиент подтвердил ключ устройства кадром auth. TLS-канал шифрует трафик,
+// поэтому ключ можно принимать и из домашней сети, а не только с точки доступа.
+static bool tlsAuthorized[DED_CORE_TLS_MAX_CLIENTS] = { false, false, false, false };
 static String tlsCertPem;
 static String tlsKeyPem;
 static bool tlsRestartPending = false;
@@ -68,6 +67,22 @@ void tlsInvalidateCertificateCache() {
 
 bool tlsIsRunning() {
   return tlsServer != nullptr;
+}
+
+// Сравнение ключа без раннего выхода: длина известна, а посимвольный возврат на
+// первом несовпадении даёт лишний канал о значении ключа.
+static bool tlsKeyEquals(const String &a, const String &b) {
+  if (a.length() == 0 || a.length() != b.length()) {
+    return false;
+  }
+
+  unsigned char diff = 0;
+
+  for (unsigned int i = 0; i < a.length(); i++) {
+    diff |= static_cast<unsigned char>(a[i] ^ b[i]);
+  }
+
+  return diff == 0;
 }
 
 const char *tlsMimeType(const String &path) {
@@ -97,10 +112,30 @@ void tlsTrackClient(int fd) {
   }
 }
 
+void tlsSetAuthorized(int fd, bool authorized) {
+  for (int i = 0; i < DED_CORE_TLS_MAX_CLIENTS; i++) {
+    if (tlsClients[i] == fd) {
+      tlsAuthorized[i] = authorized;
+      return;
+    }
+  }
+}
+
+bool tlsIsAuthorized(int fd) {
+  for (int i = 0; i < DED_CORE_TLS_MAX_CLIENTS; i++) {
+    if (tlsClients[i] == fd) {
+      return tlsAuthorized[i];
+    }
+  }
+
+  return false;
+}
+
 void tlsForgetClient(int fd) {
   for (int i = 0; i < DED_CORE_TLS_MAX_CLIENTS; i++) {
     if (tlsClients[i] == fd) {
       tlsClients[i] = -1;
+      tlsAuthorized[i] = false;
     }
   }
 }
@@ -111,6 +146,7 @@ esp_err_t tlsWsHandler(httpd_req_t *req) {
   if (req->method == HTTP_GET) {
     // Рукопожатие уже сделал httpd — запоминаем клиента для рассылки телеметрии.
     tlsTrackClient(fd);
+    tlsSetAuthorized(fd, false);
     Serial.printf("WSS client connected (fd=%d)\n", fd);
     return ESP_OK;
   }
@@ -148,8 +184,34 @@ esp_err_t tlsWsHandler(httpd_req_t *req) {
   String payloadStr = String((char *)buffer);
   free(buffer);
 
+  // Рукопожатие владельца: ключ устройства приходит один раз на соединение.
+  StaticJsonBuffer<256> authBuffer;
+  JsonObject &auth = authBuffer.parseObject(payloadStr);
+
+  if (auth.success() && auth["event"] == "auth") {
+    const char *key = auth["data"]["key"];
+    const String deviceKey = otaManager.getDeviceKey();
+    const bool ok = key != nullptr && deviceKey.length() > 0 &&
+                    tlsKeyEquals(String(key), deviceKey);
+
+    tlsSetAuthorized(fd, ok);
+
+    String reply = ok
+                       ? String("{\"event\":\"auth\",\"data\":{\"ok\":1}}")
+                       : String("{\"event\":\"auth\",\"data\":{\"error\":\"unauthorized\"}}");
+
+    httpd_ws_frame_t out = {};
+    out.type = HTTPD_WS_TYPE_TEXT;
+    out.payload = (uint8_t *)reply.c_str();
+    out.len = reply.length();
+    httpd_ws_send_frame(req, &out);
+
+    Serial.printf("WSS auth (fd=%d): %s\n", fd, ok ? "ok" : "denied");
+    return ESP_OK;
+  }
+
   String response;
-  if (handleClientCommand(payloadStr, response)) {
+  if (handleClientCommand(payloadStr, response, tlsIsAuthorized(fd))) {
     httpd_ws_frame_t out = {};
     out.type = HTTPD_WS_TYPE_TEXT;
     out.payload = (uint8_t *)response.c_str();

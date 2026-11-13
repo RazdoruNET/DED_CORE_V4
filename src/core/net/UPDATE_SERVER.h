@@ -201,8 +201,9 @@ bool updateFromAccessPoint(AsyncWebServerRequest *request) {
     return false;
   }
 
-  IPAddress client = request->client()->remoteIP();
-  return client[0] == 192 && client[1] == 168 && client[2] == 4;
+  // См. DEVICE_API_ROUTES.h: подсеть клиента ничего не доказывает, сравниваем
+  // локальный адрес соединения с адресом точки доступа.
+  return request->client()->localIP() == WiFi.softAPIP();
 }
 
 // Ключ устройства сравниваем в постоянном времени: длина известна и так, а ранний

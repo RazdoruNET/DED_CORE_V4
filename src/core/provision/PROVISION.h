@@ -64,7 +64,7 @@ void handleSerialProvision() {
   // по проводу недостижимой.
   String out;
 
-  if (handleDeviceCommand(line, out) && out.length() > 0) {
+  if (handleDeviceCommand(line, out, true) && out.length() > 0) {
     Serial.println(out);
   }
 }
