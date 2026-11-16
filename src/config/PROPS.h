@@ -11,9 +11,11 @@ uint8_t temprature_sens_read();
 uint8_t temprature_sens_read();
 
 // Версия прошивки (используется в веб-API и OTA). 4.0.13 — команды карты зажигания
-// (map_point/map_set), которыми правит карту приложение.
+// (map_point/map_set), которыми правит карту приложение. 4.0.17 — те же команды (и
+// pair_info) по Bluetooth доступны после auth с ключом устройства: кнопки на плате
+// может не быть, а без подтверждения блок отвечал приложению отказом presence.
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "4.0.16"
+#define FIRMWARE_VERSION "4.0.17"
 #endif
 
 // Pin declarations - definitions in PINS_DEF.h

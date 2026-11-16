@@ -304,6 +304,13 @@ pio run --target size
   для curl и диагностики.
 - **Bluetooth.** GATT-сервис на NimBLE (UUID — см. `src/core/ble/BLE_SERVER.h`): notify
   телеметрии и write команд. Не зависит ни от DNS, ни от сертификата.
+  Команды по Bluetooth защищены подтверждением: либо нажатие кнопки на блоке в
+  последнюю минуту, либо `{"event":"auth","data":{"key":"<ключ устройства>"}}` — ключ
+  знает только владелец, и он же нужен приложению по WiFi. Авторизация действует до
+  отключения клиента. Без подтверждения блок отвечает
+  `{"event":"error","data":{"error":"presence"}}`, поэтому на плате без кнопки
+  приложение обязано сначала прислать `auth` — иначе не получит ни `map_point`,
+  ни `pair_info` (MAC и код сопряжения).
 
 Файлы: `src/core/ota/OTA_MANAGER.*`, `src/core/provision/PROVISION.h`,
 `src/core/ble/BLE_SERVER.h`, `src/core/net/TLS_SERVER.{h,cpp}`, `partitions_ded_core.csv`.

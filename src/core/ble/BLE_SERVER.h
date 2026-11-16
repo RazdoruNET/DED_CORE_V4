@@ -29,6 +29,10 @@ extern HybridOTAManager otaManager;
 static NimBLEServer* bleServer = nullptr;
 static NimBLECharacteristic* bleTelemetry = nullptr;
 static volatile bool bleConnected = false;
+// Клиент прислал верный ключ устройства — это сильнее нажатия кнопки: ключ знает только
+// владелец блока. Нужен потому, что кнопки на плате может не быть вовсе (прототипы,
+// партии без кнопки), а без подтверждения блок не отдаёт приложению даже карты.
+static bool bleAuthorized = false;
 static unsigned long bleLastNotify = 0;
 static unsigned long bleLastWifiNotify = 0;
 // Что отправлять следующим кадром состояния: сеть или сведения о прошивке.
@@ -46,11 +50,14 @@ void initBleServer();
 class DedCoreBleServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* server) override {
     bleConnected = true;
+    // Ключ действует только на текущее соединение: приложение присылает его заново.
+    bleAuthorized = false;
     Serial.println("BLE connected");
   }
 
   void onDisconnect(NimBLEServer* server) override {
     bleConnected = false;
+    bleAuthorized = false;
     Serial.println("BLE disconnected");
     // Клиент мог отойти и вернуться — снова начинаем вещать.
     server->startAdvertising();
@@ -131,6 +138,7 @@ String blePairInfoJson() {
 static unsigned long bleLastPresenceAt = 0;
 static bool blePresenceSeen = false;
 
+
 void noteBlePresence() {
   if (digitalRead(select_cart_down_pin) == LOW) {
     bleLastPresenceAt = millis();
@@ -140,6 +148,28 @@ void noteBlePresence() {
 
 bool blePresenceRecent() {
   return blePresenceSeen && (millis() - bleLastPresenceAt) < DED_CORE_BLE_PRESENCE_MS;
+}
+
+// Сравнение без раннего выхода: длина ключа и так известна, а посимвольный возврат на
+// первом несовпадении даёт лишний канал о значении.
+bool bleKeyMatches(const char *candidate) {
+  String expected = otaManager.getDeviceKey();
+
+  if (candidate == nullptr || expected.length() == 0) {
+    return false;
+  }
+
+  if (strlen(candidate) != expected.length()) {
+    return false;
+  }
+
+  unsigned char diff = 0;
+
+  for (size_t i = 0; i < expected.length(); i++) {
+    diff |= static_cast<unsigned char>(candidate[i] ^ expected[i]);
+  }
+
+  return diff == 0;
 }
 
 // Вызывается из loop(): здесь обычный стек, места хватает и на разбор JSON, и на запись в NVS.
@@ -178,11 +208,27 @@ void handleBleCommands() {
       continue;
     }
 
+    // Ключ устройства вместо кнопки: на плате прототипа кнопки может не быть, а без
+    // подтверждения блок не отдаёт приложению ни карты, ни настройки.
+    if (root.success() && root["event"] == "auth") {
+      if (bleKeyMatches(root["data"]["key"] | "")) {
+        bleAuthorized = true;
+        bleNotify("{\"event\":\"auth\",\"data\":{\"ok\":true}}");
+        Serial.println("BLE auth ok");
+      } else {
+        bleNotify("{\"event\":\"error\",\"data\":{\"error\":\"unauthorized\"}}");
+        Serial.println("BLE auth failed");
+      }
+
+      continue;
+    }
+
     if (root.success() && root["event"] == "pair_info") {
       // MAC и код сопряжения — то, по чему блок привязывают к аккаунту. Без физического
       // подтверждения их нельзя отдавать в эфир: иначе блок «привяжет» любой, кто
-      // окажется в радиусе, а владелец об этом не узнает.
-      if (!blePresenceRecent()) {
+      // окажется в радиусе, а владелец об этом не узнает. Верный ключ устройства
+      // равносилен подтверждению: его знает только владелец.
+      if (!blePresenceRecent() && !bleAuthorized) {
         bleNotify("{\"event\":\"pair_info\",\"data\":{\"error\":\"presence\"}}");
         Serial.println("BLE pair info denied: no recent button press");
         continue;
@@ -199,9 +245,9 @@ void handleBleCommands() {
     // не аутентифицирован, поэтому требуем физическое подтверждение — нажатие
     // кнопки на блоке в последнюю минуту. Одного факта «клиент рядом» мало:
     // радиус Bluetooth — десятки метров.
-    if (!blePresenceRecent()) {
+    if (!blePresenceRecent() && !bleAuthorized) {
       bleNotify("{\"event\":\"error\",\"data\":{\"error\":\"presence\"}}");
-      Serial.println("BLE command denied: no recent button press");
+      Serial.println("BLE command denied: no recent button press and no device key");
       continue;
     }
 
@@ -224,6 +270,7 @@ bool releaseBleMemory() {
   // в handleBleTelemetry() и обратиться к уже удалённому bleTelemetry.
   bleSuspended = true;
   bleConnected = false;
+  bleAuthorized = false;
 
   NimBLEDevice::deinit(true);
 
