@@ -213,10 +213,11 @@ void handleBleCommands() {
     if (root.success() && root["event"] == "auth") {
       if (bleKeyMatches(root["data"]["key"] | "")) {
         bleAuthorized = true;
-        bleNotify("{\"event\":\"auth\",\"data\":{\"ok\":true}}");
+        // Формат ответа тот же, что у WebSocket: приложение разбирает его одним кодом.
+        bleNotify("{\"event\":\"auth\",\"data\":{\"ok\":1}}");
         Serial.println("BLE auth ok");
       } else {
-        bleNotify("{\"event\":\"error\",\"data\":{\"error\":\"unauthorized\"}}");
+        bleNotify("{\"event\":\"auth\",\"data\":{\"error\":\"unauthorized\"}}");
         Serial.println("BLE auth failed");
       }
 
