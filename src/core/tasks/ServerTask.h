@@ -7,15 +7,21 @@ void TaskServerCode(void * parameter) {
   initWifi();
   initWebSocket();
   initServer();
-  startTlsServer();
+  tlsModeInit();
     
   for(;;){ 
     dnsServer.processNextRequest();
-    handleServer();
-    handleTlsServer();
+
+    // Обычные серверы в режиме HTTPS остановлены, а фоновые переходы на новую разметку
+    // пишут во флеш — под HTTPS их не запускаем.
+    if (!tlsModeHttpsActive()) {
+      handleServer();
+      maybeStartMigrationFromService();
+      otaManager.handle();
+    }
+
+    tlsModeHandle();
     tlsHandleCertificateMaintenance();
-    maybeStartMigrationFromService();
-    otaManager.handle();
   
     vTaskDelay(2);
   }

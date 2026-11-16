@@ -3,6 +3,7 @@
 
 #include "core/net/DEVICE_COMMANDS.h"
 #include "servers/WIFI_SERVER.h"
+#include "core/net/TLS_SERVER.h"
 
 // Проверка обновлений и получение сертификата от сервиса.
 //
@@ -23,7 +24,10 @@ void TaskOtaCode(void * parameter) {
         // Сканирование занимает секунды, поэтому идёт здесь, а не в обработчике команды.
         WIFI_SCAN_REQUESTED = false;
         sendDeviceFrame(buildWifiNetworksJson());
-      } else {
+      } else if (!tlsModeHttpsActive()) {
+        // Пока работает HTTPS-сервер, клиентскую TLS-сессию к сервису не поднимаем:
+        // её буферы дробят кучу, и серверу блока не хватает непрерывного участка на
+        // рукопожатие. Проверка вернётся, когда HTTPS отпустит память.
         handleWifiAutoUpdate();
       }
     }

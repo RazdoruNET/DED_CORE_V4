@@ -31,20 +31,6 @@ extern HybridOTAManager otaManager;
 
 #define TLS_HTTP_MAX_BODY 16384
 
-// Долгую операцию (рукопожатие TLS к сервису) выполняет отдельная задача:
-// определения — servers/DEVICE_API_ROUTES.h.
-typedef void (*DeviceJobFn)();
-bool startDeviceJob(DeviceJobFn job, const char *name, uint32_t stack);
-
-void tlsRefreshJob() {
-  String error;
-
-  if (!tlsFetchFromService(error)) {
-    Serial.print("TLS: refresh failed: ");
-    Serial.println(error);
-  }
-}
-
 // Права: из сети самой точки доступа (туда пускает пароль сети блока) либо с ключом
 // устройства. Так сертификат не подменит сосед по домашней сети.
 bool tlsHttpKeyEquals(const String &a, const String &b) {
@@ -141,6 +127,53 @@ void registerTlsHttpRoutes(AsyncWebServer *server) {
     tlsSendStatusJson(request);
   });
 
+  // Переключение владельца памяти: Bluetooth или HTTPS. Блок не может держать оба
+  // режима сразу (см. tlsModeInit в core/net/TLS_SERVER.cpp), поэтому приложение или
+  // страница явно просит нужный режим, а по простою блок сам возвращает Bluetooth.
+  server->on("/api/https/start", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (!tlsHttpRequestAllowed(request)) {
+      request->send(403, "text/plain", "Нужен доступ из сети блока или ключ устройства");
+      return;
+    }
+
+    tlsModeRequestHttps();
+    request->send(202, "text/plain", "HTTPS включится через пару секунд, Bluetooth будет освобождён");
+  });
+
+  server->on("/api/ble/start", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (!tlsHttpRequestAllowed(request)) {
+      request->send(403, "text/plain", "Нужен доступ из сети блока или ключ устройства");
+      return;
+    }
+
+    tlsModeRequestBle();
+    request->send(202, "text/plain", "HTTPS будет остановлен, Bluetooth вернётся");
+  });
+
+  // Обновление сертификата по кнопке на странице блока. Рукопожатие с сервисом
+  // (два буфера mbedTLS по 16 КБ) в рабочем режиме в кучу не помещается — там уже
+  // живут HTTP/WebSocket и HTTPS-сервер. Поэтому ставим отметку и перезагружаемся:
+  // на старте, до подъёма серверов, сертификат забирается без проблем.
+  server->on("/api/tls/refresh", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (!tlsHttpRequestAllowed(request)) {
+      request->send(403, "text/plain", "Нужен доступ из сети блока или ключ устройства");
+      return;
+    }
+
+    if (WiFi.status() != WL_CONNECTED) {
+      request->send(409, "text/plain",
+        "Блок не подключён к сети с интернетом. Установите сертификат вручную файлами cert.pem и key.pem.");
+      return;
+    }
+
+    tlsRequestRefreshOnBoot();
+    request->send(202, "text/plain", "Блок перезагрузится и заберёт сертификат у сервиса");
+  });
+
+  // Раньше остальных POST-маршрутов: AsyncWebServer пускает запрос в обработчик,
+  // если путь совпадает или начинается с «uri/», поэтому «/api/tls» перехватывал
+  // «/api/tls/refresh», и обновление сертификата с блока не работало.
+  //
   // Установка сертификата вручную (аварийный путь).
   server->on("/api/tls", HTTP_POST, [](AsyncWebServerRequest *request) {}, nullptr,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
@@ -274,30 +307,6 @@ void registerTlsHttpRoutes(AsyncWebServer *server) {
                      "\",\"signature\":\"" + signature + "\"}";
       request->send(200, "application/json", reply);
     });
-
-  // Попытка забрать свежий сертификат у сервиса прямо сейчас (нужен интернет у блока).
-  server->on("/api/tls/refresh", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (!tlsHttpRequestAllowed(request)) {
-      request->send(403, "text/plain", "Нужен доступ из сети блока или ключ устройства");
-      return;
-    }
-
-    if (WiFi.status() != WL_CONNECTED) {
-      request->send(409, "text/plain",
-        "Блок не подключён к сети с интернетом. Установите сертификат вручную файлами cert.pem и key.pem.");
-      return;
-    }
-
-    // Запрос к сервису — это рукопожатие TLS на 16–32 КБ: в задаче AsyncTCP его стек
-    // и куча не выдержат, а ожидание часов остановило бы интерфейс. Поэтому работа
-    // уходит в свою задачу, а сертификат применяется и HTTPS перезапускается там же.
-    if (!startDeviceJob(tlsRefreshJob, "TaskTlsRefresh", 24576)) {
-      request->send(503, "text/plain", "Не хватает памяти на запрос сертификата");
-      return;
-    }
-
-    request->send(202, "text/plain", "Запрос сертификата отправлен, HTTPS перезапустится после ответа");
-  });
 }
 
 #endif // TLS_HTTP_ROUTES_H

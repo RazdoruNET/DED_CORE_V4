@@ -1,7 +1,7 @@
 #ifndef TLS_SERVER_H
 #define TLS_SERVER_H
 
-// HTTPS/WSS сервер устройства (IDF httpd, esp_https_server). Реализация — TLS_SERVER.cpp.
+// HTTPS/WSS сервер устройства (IDF httpd + свой TLS-транспорт). Реализация — TLS_SERVER.cpp.
 //
 // Зачем: PWA открывается по HTTPS, а браузер запрещает ws:// со страницы HTTPS (mixed content).
 // Значит блок должен отдавать wss://, а для этого нужен сертификат, которому доверяет браузер.
@@ -31,6 +31,29 @@
 
 // true — HTTPS/WSS поднялся. Без сертификата устройство остаётся на HTTP (80) + WS (81).
 bool startTlsServer();
+
+// Арбитраж памяти между Bluetooth и HTTPS.
+//
+// NimBLE с контроллером занимает ~100 КБ, TLS-серверу нужно ~20 КБ плюс буферы сессии.
+// Вместе они в кучу ESP32 не помещаются, поэтому владелец памяти один: по умолчанию
+// Bluetooth (блок виден приложению), а HTTPS включается по запросу — на время сессии
+// Bluetooth отпускает память и возвращает её после простоя.
+// Останов/запуск обычных серверов (HTTP 80 + WebSocket 81). Пока работает HTTPS,
+// они не нужны и занимают память; реализация — servers/WEB_SERVER_FUNCS.h.
+void stopPlainWebServers();
+void startPlainWebServers();
+
+// Реализация — servers/WEB_SERVER_FUNCS.h (там доступен модуль сопряжения).
+void dedModuleForget();
+String dedModulePairStart();
+String dedModulePairStop();
+void startPlainWebServers();
+
+void tlsModeInit();          // вызывается один раз при старте сервера
+void tlsModeHandle();        // вызывается в цикле задачи сервера
+void tlsModeRequestHttps();  // запрос HTTPS (сокет 443 или POST /api/https/start)
+void tlsModeRequestBle();    // вернуть Bluetooth (POST /api/ble/start)
+bool tlsModeHttpsActive();   // true — сейчас работает HTTPS, Bluetooth отпущен
 void stopTlsServer();
 bool tlsIsRunning();
 
@@ -55,8 +78,19 @@ uint32_t tlsCertificateExpiry();
 // за DED_CORE_TLS_RENEW_DAYS до истечения, если у устройства есть интернет.
 void tlsHandleCertificateMaintenance();
 
-// Забрать сертификат у сервиса (нужен интернет на устройстве). Используется и
-// обслуживанием, и аварийной кнопкой на странице блока.
+// Забрать сертификат у сервиса (нужен интернет на устройстве). Работает на старте
+// блока, пока веб-сервер и точка доступа ещё не заняли память.
 bool tlsFetchFromService(String &error);
+
+// Проверка сертификата на старте: если файла нет или до истечения меньше
+// DED_CORE_TLS_RENEW_DAYS, сертификат забирается у сервиса. Вызывается из setup()
+// до initSystemTasks(): рукопожатию TLS нужно ~33 КБ одним куском, а после подъёма
+// веб-сервера такого участка уже нет.
+void tlsStartupCertificateCheck();
+
+// Запросить обновление сертификата при следующей загрузке: ставит отметку в NVS и
+// перезагружает блок из задачи сервера. В рабочем режиме рукопожатие к сервису
+// не помещается в кучу, а на старте — помещается.
+void tlsRequestRefreshOnBoot();
 
 #endif // TLS_SERVER_H

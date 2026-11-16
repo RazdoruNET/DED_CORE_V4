@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <NimBLEDevice.h>
+#include <esp_bt.h>
 #include <ArduinoJson.h>
 #include "core/ota/HYBRID_OTA.h"
 #include "core/net/PAIRING.h"
@@ -37,6 +38,8 @@ static bool bleShowWifiState = true;
 // loop() проверяет его перед каждым обращением к bleTelemetry, иначе он мог вызвать
 // notify() на уже освобождённом объекте.
 static bool bleSuspended = false;
+// Резерв DRAM контроллера Bluetooth отдан куче: Bluetooth вернётся только после перезагрузки.
+static bool bleMemoryPurged = false;
 
 void initBleServer();
 
@@ -236,11 +239,49 @@ void restoreBleMemory() {
     return;
   }
 
+  // Резерв контроллера отдан куче (purgeBleMemory): вернуть Bluetooth можно только
+  // перезагрузкой, иначе контроллер начнёт писать в память, которая уже в куче.
+  if (bleMemoryPurged) {
+    Serial.println("BLE: controller memory is in the heap, Bluetooth needs a reboot");
+    return;
+  }
+
   // Флаг снимаем после инициализации: пока стек поднимается, кадры отправлять некуда.
   initBleServer();
   bleSuspended = false;
 
   Serial.printf("BLE restored: free=%u maxAlloc=%u\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+}
+
+// Ядро резервирует под контроллер Bluetooth CONFIG_BTDM_RESERVE_DRAM (56 КБ): memory.ld
+// сдвигает из-за этого начало DRAM, и память не видна куче. esp_bt_mem_release отдаёт её
+// куче целиком, но контроллер держит там свои EM/BSS по фиксированным адресам, поэтому
+// после вызова Bluetooth до перезагрузки не поднять. Возврат резерва нужен, когда рядом
+// с Bluetooth должны работать несколько TLS-соединений сразу.
+bool purgeBleMemory() {
+  if (bleMemoryPurged) {
+    return true;
+  }
+
+  if (bleServer != nullptr) {
+    releaseBleMemory();
+  }
+
+  esp_err_t result = esp_bt_mem_release(ESP_BT_MODE_BTDM);
+
+  if (result != ESP_OK) {
+    Serial.printf("BLE: controller memory release failed (%s)\n", esp_err_to_name(result));
+    return false;
+  }
+
+  bleMemoryPurged = true;
+  Serial.printf("BLE: controller memory released: free=%u maxAlloc=%u\n",
+                ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+  return true;
+}
+
+bool bleMemoryReleased() {
+  return bleMemoryPurged;
 }
 
 void initBleServer() {

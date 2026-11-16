@@ -104,6 +104,10 @@ void setup()
     // TLS нужен непрерывный участок памяти, и в этом месте загрузки он есть (servers/WIFI_SERVER.h).
     runStartupUpdateCheck();
 
+    // Сертификат HTTPS забираем здесь же: пока не подняты веб-сервер и точка доступа,
+    // в куче есть непрерывный участок под буферы mbedTLS. Позже его уже нет.
+    tlsStartupCertificateCheck();
+
     initSystemTasks();
 
 #ifndef DED_CORE_NO_BLE

@@ -17,7 +17,7 @@
 //
 // Порядок работы (между шагами устройство перезагружается):
 //   1. Приложение DED CORE V4 (облегчённая сборка, она помещается в заводской слот)
-//      скачивает и укладывает полный образ в будущий слот app1 по адресу 0x190000.
+//      скачивает и укладывает полный образ в будущий слот app1 (NEW_APP1_OFFSET).
 //      В заводской таблице этот адрес занят файловой системой, поэтому настройки
 //      владельца переносятся в NVS ДО этого шага (LEGACY_CONFIG_IMPORT.h).
 //   2. Пишется новая таблица, читается обратно и сверяется. Не совпало — вернём старую.
@@ -50,18 +50,18 @@ extern Preferences preferences;
 #define PARTITION_TABLE_ENTRIES  5
 #define PARTITION_TABLE_SIZE     192
 
-// Новая разметка: app-слоты по 1472 КБ, файловая система 1088 КБ.
+// Новая разметка: app-слоты по 1664 КБ, файловая система 704 КБ.
 // Должно совпадать с partitions_ded_core.csv — сверить можно так:
 //   python3 ~/.platformio/packages/framework-arduinoespressif32/tools/gen_esp32part.py partitions_ded_core.csv /tmp/ref.bin
 #define NEW_APP0_OFFSET  0x010000
-#define NEW_APP0_SIZE    0x170000
-#define NEW_APP1_OFFSET  0x180000
-#define NEW_APP1_SIZE    0x170000
+#define NEW_APP0_SIZE    0x1A0000
+#define NEW_APP1_OFFSET  0x1B0000
+#define NEW_APP1_SIZE    0x1A0000
 // Раздел файловой системы. Метка остаётся "spiffs" не по ошибке: Arduino-ядро 2.x
 // монтирует раздел именно по этой метке (LittleFS.begin() тоже ищет "spiffs"),
 // а внутри уже лежит LittleFS — см. src/core/storage/DEVICE_FS.h.
-#define NEW_SPIFFS_OFFSET 0x2F0000
-#define NEW_SPIFFS_SIZE  0x110000
+#define NEW_SPIFFS_OFFSET 0x350000
+#define NEW_SPIFFS_SIZE  0x0B0000
 
 // Отметки шагов в NVS.
 #define MIGRATION_STATE_KEY "mig_state"
@@ -121,7 +121,26 @@ void buildPartitionTable(PartitionTableImage &table) {
 }
 
 // Размер слота, по которому сейчас работает устройство. 0 — таблица не читается.
+//
+// Результат кешируется: таблица разделов меняется только перезаписью сектора и
+// перезагрузкой, а функцию зовёт цикл задачи сервера каждые 2 мс. Каждый вызов
+// esp_partition_find_first — это malloc, и при заполненной куче он возвращает NULL,
+// после чего IDF падает внутри себя (StoreProhibited) — так блок уходил в
+// перезагрузку сразу после старта HTTPS.
 uint32_t currentApp0Size() {
+  static uint32_t cachedSize = 0;
+  static unsigned long lastTry = 0;
+
+  if (cachedSize != 0) {
+    return cachedSize;
+  }
+
+  // Таблица не читается — не долбим flash чаще раза в 5 секунд.
+  if (lastTry != 0 && millis() - lastTry < 5000UL) {
+    return 0;
+  }
+  lastTry = millis();
+
   const esp_partition_t *running = esp_partition_find_first(
       ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_0, NULL);
 
@@ -129,7 +148,8 @@ uint32_t currentApp0Size() {
     return 0;
   }
 
-  return running->size;
+  cachedSize = running->size;
+  return cachedSize;
 }
 
 // Нужна ли миграция: устройство пришло с заводской разметкой.
