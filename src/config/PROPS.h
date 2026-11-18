@@ -14,8 +14,11 @@ uint8_t temprature_sens_read();
 // (map_point/map_set), которыми правит карту приложение. 4.0.17 — те же команды (и
 // pair_info) по Bluetooth доступны после auth с ключом устройства: кнопки на плате
 // может не быть, а без подтверждения блок отвечал приложению отказом presence.
+// 4.0.18 — имя и пароль точки доступа читаются из NVS на старте: раньше пароль
+// генерировался заново при каждом включении, и после перезагрузки к блоку было
+// не подключиться, а bridge на залитом компаундом блоке оставался запертым.
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "4.0.17"
+#define FIRMWARE_VERSION "4.0.18"
 #endif
 
 // Pin declarations - definitions in PINS_DEF.h

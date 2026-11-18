@@ -42,6 +42,11 @@ boolean loadConfig() {
   
   // APSSID/APPSK заводской прошивки не читаем: точка доступа работает с APSSID1/APPSK1,
   // а эти ключи писал только убранный маршрут /wifi/updator.
+  // Имя и пароль точки доступа обязательно читаем из NVS: без этого
+  // ensureAccessPointPassword() генерировал новый пароль на каждом включении,
+  // и после перезагрузки к блоку было уже не подключиться.
+  APSSID1 = preferences.getString("APSSID1", APSSID1);
+  APPSK1 = preferences.getString("APPSK1", APPSK1);
   WIFI_AUTO_UPDATE_ENABLED = preferences.getBool("wifi_auto", WIFI_AUTO_UPDATE_ENABLED);
   DIAGNOSTICS_WIFI_ENABLED = preferences.getBool("diag_en", DIAGNOSTICS_WIFI_ENABLED);
   WIFI_UPDATE_SSID = preferences.getString("wifi_ssid", WIFI_UPDATE_SSID);

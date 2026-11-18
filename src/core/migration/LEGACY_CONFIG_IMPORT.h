@@ -68,11 +68,15 @@ void legacyImportGlobals(JsonObject &json) {
   }
 
   // Точка доступа: сохраняем заводское имя и пароль, телефон владельца уже знает эту сеть.
+  // Глобальные переменные обновляем сразу: loadConfig() уже отработал до импорта,
+  // и без этого bridge на первом запуске генерировал новый пароль, затирая заводской.
   if (json.containsKey("APSSID1")) {
-    preferences.putString("APSSID1", json["APSSID1"].as<String>());
+    APSSID1 = json["APSSID1"].as<String>();
+    preferences.putString("APSSID1", APSSID1);
   }
   if (json.containsKey("APPSK1")) {
-    preferences.putString("APPSK1", json["APPSK1"].as<String>());
+    APPSK1 = json["APPSK1"].as<String>();
+    preferences.putString("APPSK1", APPSK1);
   }
 
   // Домашняя сеть: в заводской прошивке это APSSID/APPSK, в DED CORE V4 — сеть для обновлений.
